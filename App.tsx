@@ -1,4 +1,4 @@
-// MUST be first import for gesture-handler to work on iOS
+// MUST be first for iOS gestures to work
 import 'react-native-gesture-handler';
 
 import * as React from 'react';
