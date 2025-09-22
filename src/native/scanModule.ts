@@ -7,7 +7,10 @@ export type OcrResult = { pageIndex: number; spans: OcrSpan[] };
 export interface ScanModuleType {
   scan(): Promise<{ pages: string[] }>;
   ocr(pages: string[]): Promise<OcrResult[]>;
-  makeSearchablePdf(pages: string[], ocr: OcrResult[]): Promise<{ pdfUri: string }>;
+  makeSearchablePdf(
+    pages: string[],
+    ocr: OcrResult[],
+  ): Promise<{ pdfUri: string }>;
 }
 
 const { ScanModule } = NativeModules as { ScanModule: ScanModuleType };
