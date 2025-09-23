@@ -76,7 +76,7 @@ export default function EditDocumentScreen({
   }
 
   function setFilter(f: Filter) {
-    const pages = doc.pages.map((p, i) => (i === 0 ? { ...p, filter: f } : p));
+    const pages = doc.pages.map(p => ({ ...p, filter: f }));
     onSaveMeta({ ...doc, pages });
   }
 
@@ -108,17 +108,23 @@ export default function EditDocumentScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* First page preview */}
-        {doc.pages?.[0] && (
-          <View style={styles.previewContainer}>
-            <Image
-              source={{ uri: doc.pages[0].uri }}
-              style={styles.previewImage}
-            />
-          </View>
-        )}
+        {/* Page count indicator */}
+        <Text style={styles.pageCount}>Pages: {doc.pages?.length ?? 0}</Text>
 
-        {/* Filter chips */}
+        {/* All pages */}
+        {doc.pages?.map((page, index) => (
+          <View key={page.id ?? page.uri} style={styles.pageContainer}>
+            <Text style={styles.pageNumber}>Page {index + 1}</Text>
+            <View style={styles.previewContainer}>
+              <Image
+                source={{ uri: page.uri }}
+                style={styles.previewImage}
+              />
+            </View>
+          </View>
+        ))}
+
+        {/* Filter chips - apply to all pages */}
         <View style={styles.filterContainer}>
           {(['color', 'grayscale', 'bw'] as const).map(f => (
             <TouchableOpacity
@@ -126,13 +132,13 @@ export default function EditDocumentScreen({
               onPress={() => setFilter(f)}
               style={[
                 styles.filterChip,
-                doc.pages?.[0]?.filter === f && styles.filterChipSelected,
+                doc.pages?.every(p => p.filter === f) && styles.filterChipSelected,
               ]}
             >
               <Text
                 style={[
                   styles.filterChipText,
-                  doc.pages?.[0]?.filter === f && styles.filterChipTextSelected,
+                  doc.pages?.every(p => p.filter === f) && styles.filterChipTextSelected,
                 ]}
               >
                 {f}
@@ -224,6 +230,23 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+  },
+  pageCount: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  pageContainer: {
+    marginBottom: 24,
+  },
+  pageNumber: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   previewContainer: {
     alignItems: 'center',

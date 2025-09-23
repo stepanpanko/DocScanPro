@@ -7,7 +7,7 @@ type Job = {
   key: string;
   uri: string;
   filter: 'color' | 'grayscale' | 'bw';
-  rotation: 0 | 90 | 180 | 270;
+  rotation: number;
 };
 type CtxValue = {
   process: (p: {

@@ -2,6 +2,7 @@ import RNFS from 'react-native-fs';
 import { MMKV } from 'react-native-mmkv';
 import type { Doc } from './types';
 import { toFsPath } from './utils/paths';
+import { generateId } from './utils/ids';
 
 const kv = new MMKV({ id: 'DocScanPro' });
 const ROOT = `${RNFS.DocumentDirectoryPath}/DocScanPro`;
@@ -13,11 +14,37 @@ async function ensureRoot() {
 
 export function getDocsIndex(): Doc[] {
   const raw = kv.getString('docs-index');
-  return raw ? (JSON.parse(raw) as Doc[]) : [];
+  const docs = raw ? (JSON.parse(raw) as Doc[]) : [];
+  return docs.map(normalizeDoc);
+}
+
+export function normalizeDoc(d: any): Doc {
+  return {
+    ...d,
+    kind: d?.kind ?? 'generic',
+    folderId: d?.folderId ?? null,
+    ocrStatus: d?.ocrStatus ?? 'idle',
+    ocrExcerpt: d?.ocrExcerpt ?? '',
+    passwordHint: d?.passwordHint ?? null,
+    tags: d?.tags ?? [],
+    pages: (d?.pages ?? []).map((p: any) => ({
+      id: p?.id ?? generateId(),
+      uri: p?.uri,
+      imageURL: p?.imageURL ?? p?.uri,
+      rotation: p?.rotation ?? 0,
+      filter: p?.filter ?? 'color',
+      dpi: p?.dpi,
+      quad: p?.quad,
+      ocrText: p?.ocrText,
+      width: p?.width,
+      height: p?.height,
+    })),
+  };
 }
 
 export function saveDocsIndex(docs: Doc[]) {
-  kv.set('docs-index', JSON.stringify(docs));
+  const normalizedDocs = docs.map(normalizeDoc);
+  kv.set('docs-index', JSON.stringify(normalizedDocs));
 }
 
 async function docDir(docId: string) {

@@ -7,8 +7,11 @@ import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {FilterProcessorProvider} from './src/FilterProcessor';
 import LibraryScreen from './src/screens/LibraryScreen';
 import EditDocumentScreen from './src/screens/EditDocumentScreen';
-import {Doc, Page} from './src/types';
+import {Doc, Page, newPage} from './src/types';
 import {getDocsIndex, saveDocsIndex, putPageFile, removeDocFiles} from './src/storage';
+import { VisionKitScannerEngine } from './src/scanner/VisionKitScannerEngine';
+
+const scanner = new VisionKitScannerEngine();
 
 export default function App() {
   const [screen, setScreen] = React.useState<'library' | 'editor'>('library');
@@ -39,9 +42,10 @@ export default function App() {
     setScreen('library');
   }
 
-  async function createFromScan(imageUris: string[]) {
+  async function createFromScan(imageData: { uri: string; width?: number; height?: number }[]) {
     try {
-      if (!imageUris?.length) return;
+      console.log('[createFromScan] input:', imageData);
+      if (!imageData?.length) return;
       const doc: Doc = {
         id: String(Date.now()),
         title: `Scan ${new Date().toLocaleString()}`,
@@ -50,9 +54,10 @@ export default function App() {
         ocr: [],
       };
       const pages: Page[] = [];
-      for (let i = 0; i < imageUris.length; i++) {
-        const stored = await putPageFile(doc.id, imageUris[i], i);
-        pages.push({uri: stored, rotation: 0, filter: 'color'});
+      for (let i = 0; i < imageData.length; i++) {
+        const { uri, width, height } = imageData[i];
+        const stored = await putPageFile(doc.id, uri, i);
+        pages.push(newPage(stored, { width, height }));
       }
       const created: Doc = {...doc, pages};
       const next = [created, ...docs];
@@ -65,14 +70,9 @@ export default function App() {
 
   async function startScan() {
     try {
-      const DocumentScanner =
-        require('react-native-document-scanner-plugin').default;
-      const result = await DocumentScanner.scanDocument({
-        maxNumDocuments: 12,
-        cropping: false,
-      });
-      if (result?.scannedImages?.length) {
-        await createFromScan(result.scannedImages);
+      const { pages } = await scanner.scan(12);
+      if (pages.length) {
+        await createFromScan(pages.map(p => ({ uri: p.imageURL, width: p.width, height: p.height })));
       }
     } catch (e: any) {
       Alert.alert('Scanner error', String(e?.message || e));
