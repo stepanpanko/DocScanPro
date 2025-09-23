@@ -1,5 +1,6 @@
 import { Image } from 'react-native';
 import {ScannerEngine, ScanResult} from './ScannerEngine';
+import { log } from '../utils/log';
 
 export class VisionKitScannerEngine implements ScannerEngine {
   async scan(max = 12): Promise<ScanResult> {
@@ -9,7 +10,7 @@ export class VisionKitScannerEngine implements ScannerEngine {
       cropping: true,
       allowMultiple: true
     });
-    console.log('[scan] images:', result?.scannedImages?.length ?? 0, result?.scannedImages);
+    log('[scan] images:', result?.scannedImages?.length ?? 0, result?.scannedImages);
     const pages = await Promise.all(
       (result?.scannedImages ?? []).map(async (imageURL: string) => {
         const dimensions = await new Promise<{width: number, height: number}>((resolve, reject) => {

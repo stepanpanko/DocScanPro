@@ -10,7 +10,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useFilterProcessor } from '../FilterProcessor';
-import { runOCRFor } from '../ocr';
+import { runOcrForDoc } from '../ocr/OCRService';
 import { buildPdfFromImages, shareFile } from '../pdf';
 import Button from '../components/Button';
 import { Doc, Filter } from '../types';
@@ -32,7 +32,7 @@ export default function EditDocumentScreen({
   const { process } = useFilterProcessor();
   const [busy, setBusy] = React.useState(false);
 
-  async function exportPdf() {
+  async function exportPdf(includeText = false) {
     try {
       setBusy(true);
       const processed: string[] = [];
@@ -45,17 +45,27 @@ export default function EditDocumentScreen({
         processed.push(out);
       }
 
-      log('[exportPdf] processed uris:', processed); // <— add
-      // TEMP fallback if you can't open DevTools:
-      // Alert.alert('processed', processed.join('\n').slice(0, 1200));
+      log('[exportPdf] processed uris:', processed);
 
-      const pdf = await buildPdfFromImages(doc.id, processed);
-      log('[exportPdf] pdf:', pdf); // <— add
+      if (includeText && !doc.pages?.some(p => p.ocrText)) {
+        Alert.alert(
+          'No OCR text found',
+          'Run OCR first to make the PDF searchable.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const pdf = await buildPdfFromImages(doc.id, processed, {
+        includeText,
+        pages: doc.pages
+      });
+      log('[exportPdf] pdf:', pdf);
 
       onSaveMeta({ ...doc, pdfPath: pdf });
       await shareFile(pdf);
     } catch (e: any) {
-      log('[exportPdf] ERROR:', e?.message || e); // <— add
+      log('[exportPdf] ERROR:', e?.message || e);
       Alert.alert('Export failed', String(e?.message || e));
     } finally {
       setBusy(false);
@@ -65,10 +75,11 @@ export default function EditDocumentScreen({
   async function runOCR() {
     try {
       setBusy(true);
-      const textBlobs = await runOCRFor(doc);
-      onSaveMeta({ ...doc, ocr: textBlobs });
-      Alert.alert('OCR finished', 'Text indexed for search.');
+      const updated = await runOcrForDoc(doc);
+      onSaveMeta(updated);
+      Alert.alert('OCR finished', 'Document is now searchable.');
     } catch (e: any) {
+      log('[runOCR] ERROR:', e?.message || e);
       Alert.alert('OCR failed', String(e?.message || e));
     } finally {
       setBusy(false);
@@ -150,15 +161,41 @@ export default function EditDocumentScreen({
         <View style={styles.buttonContainer}>
           <Button
             label="Export PDF & Share"
-            onPress={exportPdf}
+            onPress={() => exportPdf(false)}
             disabled={busy}
             variant="primary"
           />
         </View>
 
+        {doc.ocrStatus === 'done' && (
+          <View style={styles.buttonContainer}>
+            <Button
+              label="Export Searchable PDF & Share"
+              onPress={() => exportPdf(true)}
+              disabled={busy}
+              variant="primary"
+            />
+          </View>
+        )}
+
+        {/* OCR Status Badge */}
+        {doc.ocrStatus && doc.ocrStatus !== 'idle' && (
+          <View style={styles.statusContainer}>
+            <Text style={styles.statusBadge}>
+              {doc.ocrStatus === 'running' && '🔄 OCRing...'}
+              {doc.ocrStatus === 'done' && '✅ Searchable ready'}
+              {doc.ocrStatus === 'failed' && '❌ OCR failed'}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.buttonContainer}>
           <Button
-            label="Run OCR (index text)"
+            label={
+              doc.ocrStatus === 'done'
+                ? 'Re-run OCR'
+                : 'Run OCR'
+            }
             onPress={runOCR}
             disabled={busy}
             variant="secondary"
@@ -166,10 +203,12 @@ export default function EditDocumentScreen({
         </View>
         <View style={styles.buttonContainer}>
           <Button
-            label={`View OCR text (${doc.ocr?.length || 0} pages)`}
+            label={`View OCR text (${doc.pages?.filter(p => p.ocrText).length || 0}/${doc.pages?.length || 0} pages)`}
             onPress={() => {
-              const text =
-                (doc.ocr || []).join('\n\n---\n\n').slice(0, 2000) || '(empty)';
+              const text = doc.pages
+                ?.map((p, i) => `Page ${i + 1}:\n${p.ocrText || '(no text)'}`)
+                .join('\n\n---\n\n')
+                .slice(0, 2000) || '(empty)';
               Alert.alert('OCR Text (truncated)', text);
             }}
             variant="secondary"
@@ -288,6 +327,19 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginBottom: 12,
+  },
+  statusContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    backgroundColor: '#2563EB',
   },
   loadingContainer: {
     marginTop: 24,

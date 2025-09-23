@@ -16,6 +16,7 @@ async function readBase64(pathOrUri: string) {
 export async function buildPdfFromImages(
   docId: string,
   processedUris: string[],
+  options?: { includeText?: boolean; pages?: Array<{ ocrText?: string }> }
 ) {
   const dir = `${RNFS.DocumentDirectoryPath}/DocScanPro/${docId}`;
   await RNFS.mkdir(dir);
@@ -66,6 +67,24 @@ export async function buildPdfFromImages(
 
     const page = pdf.addPage([img.width, img.height]);
     page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+
+    // Add invisible text overlay if requested and available
+    if (options?.includeText && options.pages?.[i]?.ocrText?.trim()) {
+      const text = options.pages[i].ocrText!.trim();
+      log(`[pdf] Adding text overlay to page ${i + 1}, length: ${text.length}`);
+
+      try {
+        page.drawText(text, {
+          x: 12,
+          y: img.height - 24,
+          size: 1,
+          opacity: 0,
+        });
+        log(`[pdf] Text overlay added successfully to page ${i + 1}`);
+      } catch (error) {
+        log(`[pdf] Failed to add text overlay to page ${i + 1}:`, error);
+      }
+    }
   }
 
   // 3) Save the PDF
