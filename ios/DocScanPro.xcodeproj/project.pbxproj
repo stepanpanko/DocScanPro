@@ -8,9 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		5DD0F451C04D3A3F36B4B547 /* libPods-DocScanPro.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BEEABCF11617BF0F96C4A8C /* libPods-DocScanPro.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		A88B4228E5DE28EC0D4B1256 /* libPods-DocScanPro.a in Frameworks */ = {isa = PBXBuildFile; fileRef = D449A0DB398D395BDAFC124B /* libPods-DocScanPro.a */; };
 		DD4089B1248C03D049203DFF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -33,12 +33,12 @@
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = DocScanPro/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = DocScanPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4A71EF292E7B5AE300A1B0CE /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
-		4CE3975514F9D83686B9AA79 /* Pods-DocScanPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DocScanPro.debug.xcconfig"; path = "Target Support Files/Pods-DocScanPro/Pods-DocScanPro.debug.xcconfig"; sourceTree = "<group>"; };
-		6BEEABCF11617BF0F96C4A8C /* libPods-DocScanPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DocScanPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DocScanPro/AppDelegate.swift; sourceTree = "<group>"; };
+		79DEEC4C4817F6FE24867898 /* Pods-DocScanPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DocScanPro.debug.xcconfig"; path = "Target Support Files/Pods-DocScanPro/Pods-DocScanPro.debug.xcconfig"; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DocScanPro/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		E404AC06ABBEEA8EB86D591B /* Pods-DocScanPro.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DocScanPro.release.xcconfig"; path = "Target Support Files/Pods-DocScanPro/Pods-DocScanPro.release.xcconfig"; sourceTree = "<group>"; };
+		D449A0DB398D395BDAFC124B /* libPods-DocScanPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DocScanPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F3FF2A73B1E96A23F8E8A698 /* Pods-DocScanPro.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DocScanPro.release.xcconfig"; path = "Target Support Files/Pods-DocScanPro/Pods-DocScanPro.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -56,7 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5DD0F451C04D3A3F36B4B547 /* libPods-DocScanPro.a in Frameworks */,
+				A88B4228E5DE28EC0D4B1256 /* libPods-DocScanPro.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,7 +80,7 @@
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				4A71EF292E7B5AE300A1B0CE /* AuthenticationServices.framework */,
-				6BEEABCF11617BF0F96C4A8C /* libPods-DocScanPro.a */,
+				D449A0DB398D395BDAFC124B /* libPods-DocScanPro.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -118,8 +118,8 @@
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				4CE3975514F9D83686B9AA79 /* Pods-DocScanPro.debug.xcconfig */,
-				E404AC06ABBEEA8EB86D591B /* Pods-DocScanPro.release.xcconfig */,
+				79DEEC4C4817F6FE24867898 /* Pods-DocScanPro.debug.xcconfig */,
+				F3FF2A73B1E96A23F8E8A698 /* Pods-DocScanPro.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -131,14 +131,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "DocScanPro" */;
 			buildPhases = (
-				00F3BD95B7B9E0F28A9C512F /* [CP] Check Pods Manifest.lock */,
+				1CC952BEF18F55AE7C5B75CD /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				4A71EF352E7B5AE300A1B0CE /* Embed Foundation Extensions */,
-				5AAC3D4B834F67D04927DA92 /* [CP] Embed Pods Frameworks */,
-				594F3867A3AF226DF7B8D398 /* [CP] Copy Pods Resources */,
+				A3154F7D921A312F68A369EB /* [CP] Embed Pods Frameworks */,
+				739318303A136C59DF6778F3 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -211,7 +211,7 @@
 			shellPath = /bin/sh;
 			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
 		};
-		00F3BD95B7B9E0F28A9C512F /* [CP] Check Pods Manifest.lock */ = {
+		1CC952BEF18F55AE7C5B75CD /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -233,7 +233,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		594F3867A3AF226DF7B8D398 /* [CP] Copy Pods Resources */ = {
+		739318303A136C59DF6778F3 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -250,7 +250,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DocScanPro/Pods-DocScanPro-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		5AAC3D4B834F67D04927DA92 /* [CP] Embed Pods Frameworks */ = {
+		A3154F7D921A312F68A369EB /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -283,7 +283,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 4CE3975514F9D83686B9AA79 /* Pods-DocScanPro.debug.xcconfig */;
+			baseConfigurationReference = 79DEEC4C4817F6FE24867898 /* Pods-DocScanPro.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -312,7 +312,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E404AC06ABBEEA8EB86D591B /* Pods-DocScanPro.release.xcconfig */;
+			baseConfigurationReference = F3FF2A73B1E96A23F8E8A698 /* Pods-DocScanPro.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
