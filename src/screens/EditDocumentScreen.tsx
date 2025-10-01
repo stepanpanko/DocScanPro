@@ -2,18 +2,19 @@ import React from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { useFilterProcessor } from '../FilterProcessor';
-import { runOCRFor } from '../ocr';
 import { buildPdfFromImages, shareFile } from '../pdf';
 import Button from '../components/Button';
-import { Doc, Filter } from '../types';
+import PageCarousel from '../components/PageCarousel';
+import ThumbnailStrip from '../components/ThumbnailStrip';
+import SearchableStatus from './DocumentDetails/SearchableStatus';
+import { ocrQueue } from '../ocr/queue';
+import { Doc } from '../types';
 import { log } from '../utils/log';
 
 type Props = {
@@ -31,12 +32,39 @@ export default function EditDocumentScreen({
 }: Props) {
   const { process } = useFilterProcessor();
   const [busy, setBusy] = React.useState(false);
+  const [currentDoc, setCurrentDoc] = React.useState<Doc>(doc);
+  const [currentPageIndex, setCurrentPageIndex] = React.useState(0);
+
+  // Guard against empty pages while layout settles
+  const pages = currentDoc.pages ?? [];
+  if (pages.length === 0) {
+    return <View style={{flex:1, backgroundColor:'#111'}} />;
+  }
+
+  // Update local doc state when prop changes
+  React.useEffect(() => {
+    setCurrentDoc(doc);
+  }, [doc]);
+
+  // Auto-trigger OCR when document is opened
+  React.useEffect(() => {
+    console.log('[OCR][auto] document opened', { docId: doc.id, status: doc.ocrStatus });
+    log('[OCR] Document opened, checking OCR status:', doc.id, doc.ocrStatus);
+    
+    // Auto-enqueue if status is undefined, idle, or error
+    if (doc.ocrStatus === undefined || doc.ocrStatus === 'idle' || doc.ocrStatus === 'error') {
+      console.log('[OCR][auto] auto-enqueue triggered', { docId: doc.id });
+      log('[OCR] Auto-enqueueing document for OCR:', doc.id);
+      ocrQueue.enqueueDoc(doc.id);
+    }
+  }, [doc.id, doc.ocrStatus]);
+
 
   async function exportPdf() {
     try {
       setBusy(true);
       const processed: string[] = [];
-      for (const p of doc.pages) {
+      for (const p of currentDoc.pages) {
         const out = await process({
           uri: p.uri,
           filter: p.filter,
@@ -45,51 +73,39 @@ export default function EditDocumentScreen({
         processed.push(out);
       }
 
-      log('[exportPdf] processed uris:', processed); // <— add
-      // TEMP fallback if you can't open DevTools:
-      // Alert.alert('processed', processed.join('\n').slice(0, 1200));
+      log('[exportPdf] processed uris:', processed);
+      const pdf = await buildPdfFromImages(currentDoc.id, processed);
+      log('[exportPdf] pdf:', pdf);
 
-      const pdf = await buildPdfFromImages(doc.id, processed);
-      log('[exportPdf] pdf:', pdf); // <— add
-
-      onSaveMeta({ ...doc, pdfPath: pdf });
+      const updatedDoc = { ...currentDoc, pdfPath: pdf };
+      setCurrentDoc(updatedDoc);
+      onSaveMeta(updatedDoc);
       await shareFile(pdf);
     } catch (e: any) {
-      log('[exportPdf] ERROR:', e?.message || e); // <— add
+      log('[exportPdf] ERROR:', e?.message || e);
       Alert.alert('Export failed', String(e?.message || e));
     } finally {
       setBusy(false);
     }
   }
 
-  async function runOCR() {
-    try {
-      setBusy(true);
-      const textBlobs = await runOCRFor(doc);
-      onSaveMeta({ ...doc, ocr: textBlobs });
-      Alert.alert('OCR finished', 'Text indexed for search.');
-    } catch (e: any) {
-      Alert.alert('OCR failed', String(e?.message || e));
-    } finally {
-      setBusy(false);
-    }
-  }
 
-  function setFilter(f: Filter) {
-    const pages = doc.pages.map((p, i) => (i === 0 ? { ...p, filter: f } : p));
-    onSaveMeta({ ...doc, pages });
-  }
 
   return (
-    <View style={styles.container}>
+    <View key={doc.id} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>
-          {doc.title}
-        </Text>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title} numberOfLines={1}>
+            {currentDoc.title}
+          </Text>
+          <Text style={styles.pageIndicator}>
+            {currentPageIndex + 1}/{currentDoc.pages.length}
+          </Text>
+        </View>
         <TouchableOpacity
           onPress={() => {
             Alert.alert(
@@ -107,75 +123,43 @@ export default function EditDocumentScreen({
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* First page preview */}
-        {doc.pages?.[0] && (
-          <View style={styles.previewContainer}>
-            <Image
-              source={{ uri: doc.pages[0].uri }}
-              style={styles.previewImage}
-            />
-          </View>
-        )}
+      {/* Searchable Status Banner */}
+      <SearchableStatus doc={currentDoc} />
 
-        {/* Filter chips */}
-        <View style={styles.filterContainer}>
-          {(['color', 'grayscale', 'bw'] as const).map(f => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              style={[
-                styles.filterChip,
-                doc.pages?.[0]?.filter === f && styles.filterChipSelected,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  doc.pages?.[0]?.filter === f && styles.filterChipTextSelected,
-                ]}
-              >
-                {f}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+      {/* Page Carousel */}
+      <View style={styles.carouselContainer}>
+        <PageCarousel
+          pages={currentDoc.pages}
+          initialIndex={currentPageIndex}
+          onIndexChange={setCurrentPageIndex}
+        />
+      </View>
 
-        <View style={styles.buttonContainer}>
-          <Button
-            label="Export PDF & Share"
-            onPress={exportPdf}
-            disabled={busy}
-            variant="primary"
-          />
-        </View>
+      {/* Thumbnail Strip */}
+      {currentDoc.pages.length > 1 && (
+        <ThumbnailStrip
+          pages={currentDoc.pages}
+          currentIndex={currentPageIndex}
+          onPageSelect={setCurrentPageIndex}
+        />
+      )}
 
-        <View style={styles.buttonContainer}>
-          <Button
-            label="Run OCR (index text)"
-            onPress={runOCR}
-            disabled={busy}
-            variant="secondary"
-          />
+      {/* Export Button */}
+      <View style={styles.buttonContainer}>
+        <Button
+          label="Export PDF & Share"
+          onPress={exportPdf}
+          disabled={busy}
+          variant="primary"
+        />
+      </View>
+
+      {busy && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Processing...</Text>
         </View>
-        <View style={styles.buttonContainer}>
-          <Button
-            label={`View OCR text (${doc.ocr?.length || 0} pages)`}
-            onPress={() => {
-              const text =
-                (doc.ocr || []).join('\n\n---\n\n').slice(0, 2000) || '(empty)';
-              Alert.alert('OCR Text (truncated)', text);
-            }}
-            variant="secondary"
-          />
-        </View>
-        {busy && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563EB" />
-            <Text style={styles.loadingText}>Processing...</Text>
-          </View>
-        )}
-      </ScrollView>
+      )}
     </View>
   );
 }
@@ -183,96 +167,75 @@ export default function EditDocumentScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#000',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
   backButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   backText: {
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontSize: 16,
+  },
+  titleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 16,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0F172A',
-    flex: 1,
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginHorizontal: 16,
+  },
+  pageIndicator: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
   deleteButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
   },
   deleteText: {
     fontSize: 18,
   },
-  content: {
-    padding: 16,
-  },
-  previewContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  previewImage: {
-    width: 200,
-    height: 280,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-    justifyContent: 'center',
-  },
-  filterChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  filterChipSelected: {
-    backgroundColor: '#2563EB',
-    borderColor: '#2563EB',
-  },
-  filterChipText: {
-    color: '#64748B',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  filterChipTextSelected: {
-    color: '#FFFFFF',
+  carouselContainer: {
+    flex: 1,
   },
   buttonContainer: {
-    marginBottom: 12,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
   loadingContainer: {
-    marginTop: 24,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 8,
-    color: '#64748B',
+    color: '#FFFFFF',
     fontSize: 16,
   },
 });
