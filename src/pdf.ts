@@ -2,15 +2,90 @@
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 import ImageResizer from 'react-native-image-resizer';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { stripFileScheme } from './utils/paths';
 import { log, warn } from './utils/log';
+import { getDocsIndex } from './storage';
+import type { OcrWord } from './types';
 
 const dataUri = (b64: string, kind: 'jpg' | 'png') =>
   `data:image/${kind === 'jpg' ? 'jpeg' : 'png'};base64,${b64}`;
 
 async function readBase64(pathOrUri: string) {
   return RNFS.readFile(stripFileScheme(pathOrUri), 'base64');
+}
+
+/**
+ * Convert image pixel coordinates to PDF points within the actual image draw rectangle
+ * Image coordinates: origin top-left, in pixels
+ * PDF coordinates: origin bottom-left, in points
+ */
+function imageRectToPdfRect(
+  box: { x: number; y: number; width: number; height: number },
+  ocrImageW: number, 
+  ocrImageH: number,
+  drawRect: { x: number; y: number; width: number; height: number }
+): { x: number; y: number; size: number; baselineAdjust: number } {
+  // Scale from OCR image coordinates to the actual image draw area
+  const scaleX = drawRect.width / ocrImageW;
+  const scaleY = drawRect.height / ocrImageH;
+  
+  // Transform coordinates:
+  // OCR: origin top-left, PDF: origin bottom-left
+  // Map to the actual draw rectangle position
+  const x = drawRect.x + (box.x * scaleX);
+  const y = drawRect.y + (drawRect.height - (box.y + box.height) * scaleY); // flip Y and align baseline at bottom of box
+  const size = Math.max(box.height * scaleY * 0.9, 6); // font size ~90% of box height, minimum 6 points
+  // Baseline correction (~20% of font size)
+  const baselineAdjust = size * 0.2;
+  
+  log(`[PDF] Coord transform: OCR(${box.x},${box.y}) ${ocrImageW}x${ocrImageH} -> PDF(${x},${y}) in drawRect(${drawRect.x},${drawRect.y},${drawRect.width}x${drawRect.height}) scale(${scaleX},${scaleY})`);
+  
+  return { x, y, size, baselineAdjust };
+}
+
+/**
+ * Draw invisible OCR text overlay on a PDF page
+ */
+async function drawInvisibleTextLayer(
+  page: any, // PDFPage
+  font: any, // PDFFont
+  ocrWords: OcrWord[],
+  imageSize: { width: number; height: number },
+  drawRect: { x: number; y: number; width: number; height: number }
+): Promise<void> {
+  if (!ocrWords || ocrWords.length === 0) {
+    log('[PDF] No OCR data for text overlay');
+    return;
+  }
+
+  log(`[PDF] overlay words: ${ocrWords.length}`);
+  
+  for (const word of ocrWords) {
+    if (!word.text.trim()) continue; // Skip empty text
+    
+    try {
+      const { x, y, size, baselineAdjust } = imageRectToPdfRect(
+        word.box,
+        imageSize.width,
+        imageSize.height,
+        drawRect
+      );
+      
+      // Draw text with very low opacity to make it invisible but searchable
+      page.drawText(word.text, {
+        x,
+        y: y + baselineAdjust, // Apply baseline correction
+        size,
+        font,
+        opacity: 0.001, // Nearly invisible but not exactly 0
+      });
+      
+    } catch (textError) {
+      warn('[PDF] Failed to draw OCR text:', word.text, textError);
+      // Continue with other words even if one fails
+    }
+  }
 }
 
 export async function buildPdfFromImages(
@@ -21,13 +96,40 @@ export async function buildPdfFromImages(
   await RNFS.mkdir(dir);
   const pdfPath = `${dir}/export.pdf`;
 
-  log('[pdf] start, pages:', processedUris.length);
+  log('[PDF] start, pages:', processedUris.length);
+
+  // Get document data for OCR overlay
+  const docs = getDocsIndex();
+  const doc = docs.find(d => d.id === docId);
+  
+  // Only add invisible text layer if we have REAL bounding boxes from VisionOCR
+  // (empty ocrBoxes array means TextRecognition fallback was used - no accurate boxes)
+  const hasOcrData = doc?.ocrStatus === 'done' && doc.pages?.some(p => p.ocrBoxes && p.ocrBoxes.length > 0);
+  
+  if (hasOcrData) {
+    log('[PDF] Document has OCR data with bounding boxes, will add invisible text layer');
+  } else if (doc?.ocrStatus === 'done') {
+    log('[PDF] Document has OCR text but no bounding boxes (TextRecognition fallback), skipping overlay');
+  } else {
+    log('[PDF] No OCR data found, creating image-only PDF');
+  }
 
   const pdf = await PDFDocument.create();
+  
+  // Embed font for text overlay (only if we have OCR data)
+  let font;
+  if (hasOcrData) {
+    try {
+      font = await pdf.embedFont(StandardFonts.Helvetica);
+      log('[PDF] Embedded Helvetica font for text overlay');
+    } catch (fontError) {
+      warn('[PDF] Failed to embed font, skipping text overlay:', fontError);
+    }
+  }
 
   for (let i = 0; i < processedUris.length; i++) {
     const src = processedUris[i];
-    log(`[pdf] page ${i + 1}:`, src);
+    log(`[PDF] page ${i + 1}:`, src);
 
     // 1) Read the file we have
     let b64 = await readBase64(src);
@@ -37,13 +139,13 @@ export async function buildPdfFromImages(
 
     try {
       img = await pdf.embedJpg(dataUri(b64, 'jpg'));
-      log('[pdf] embedded as JPG');
+      log('[PDF] embedded as JPG');
     } catch {
       try {
         img = await pdf.embedPng(dataUri(b64, 'png'));
-        log('[pdf] embedded as PNG');
+        log('[PDF] embedded as PNG');
       } catch {
-        warn('[pdf] embed failed; re-encoding to JPEG…');
+        warn('[PDF] embed failed; re-encoding to JPEG…');
         const r = await ImageResizer.createResizedImage(
           src,
           3000,
@@ -60,15 +162,46 @@ export async function buildPdfFromImages(
         if (!outPath) throw new Error('ImageResizer failed to return valid path');
         b64 = await readBase64(outPath);
         img = await pdf.embedJpg(dataUri(b64, 'jpg'));
-        log('[pdf] embedded after JPEG re-encode');
+        log('[PDF] embedded after JPEG re-encode');
       }
     }
 
     const page = pdf.addPage([img.width, img.height]);
-    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+    const drawRect = { x: 0, y: 0, width: img.width, height: img.height };
+    page.drawImage(img, drawRect);
+    
+    // 3) Add invisible text layer if we have OCR data for this page
+    if (hasOcrData && font && doc && doc.pages[i]?.ocrBoxes && doc.pages[i].ocrBoxes!.length > 0) {
+      try {
+        const pageData = doc.pages[i];
+        const ocrBoxes = pageData.ocrBoxes!; // We know it exists and has length > 0
+        
+        // Use the original image size from OCR data - this is critical for correct coordinate mapping
+        const firstWord = ocrBoxes[0];
+        if (!firstWord || !firstWord.imgW || !firstWord.imgH) {
+          warn(`[PDF] OCR data missing image dimensions for page ${i + 1}, skipping text overlay`);
+          continue;
+        }
+        
+        const ocrImageSize = { width: firstWord.imgW, height: firstWord.imgH };
+        
+        await drawInvisibleTextLayer(
+          page,
+          font,
+          ocrBoxes,
+          ocrImageSize,
+          drawRect
+        );
+        
+        log(`[PDF] Added invisible text layer to page ${i + 1} (OCR: ${ocrImageSize.width}x${ocrImageSize.height} -> PDF drawRect: ${drawRect.width}x${drawRect.height})`);
+      } catch (overlayError) {
+        warn(`[PDF] Failed to add text overlay to page ${i + 1}:`, overlayError);
+        // Continue without overlay for this page
+      }
+    }
   }
 
-  // 3) Save the PDF
+  // 4) Save the PDF
   const pdfB64 = await pdf.saveAsBase64({ dataUri: false });
   await RNFS.writeFile(pdfPath, pdfB64, 'base64');
   const finalUri = `file://${pdfPath}`;

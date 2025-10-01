@@ -8,10 +8,14 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2AFC7411DE404E5683F6F7DC /* VisionOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1629547BC0C14362B5655403 /* VisionOCR.swift */; };
 		5DD0F451C04D3A3F36B4B547 /* libPods-DocScanPro.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BEEABCF11617BF0F96C4A8C /* libPods-DocScanPro.a */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		90C4DE6D5CD5480EADEF6715 /* VisionOCRBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 2DDF397DEB4247138AAC3AC9 /* VisionOCRBridge.m */; };
+		D4CA46D93674434EA2F69166 /* PDFRasterizerBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 29326D8C0BEA45AAA6DF032A /* PDFRasterizerBridge.m */; };
 		DD4089B1248C03D049203DFF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
+		EBD2A70B5B5249AF884E308F /* PDFRasterizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D01451861C54A06B94A9CEF /* PDFRasterizer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -32,8 +36,12 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = DocScanPro/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = DocScanPro/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = DocScanPro/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		1629547BC0C14362B5655403 /* VisionOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VisionOCR.swift; path = DocScanPro/VisionOCR.swift; sourceTree = "<group>"; };
+		29326D8C0BEA45AAA6DF032A /* PDFRasterizerBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = PDFRasterizerBridge.m; path = DocScanPro/PDFRasterizerBridge.m; sourceTree = "<group>"; };
+		2DDF397DEB4247138AAC3AC9 /* VisionOCRBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = VisionOCRBridge.m; path = DocScanPro/VisionOCRBridge.m; sourceTree = "<group>"; };
 		4A71EF292E7B5AE300A1B0CE /* AuthenticationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AuthenticationServices.framework; path = System/Library/Frameworks/AuthenticationServices.framework; sourceTree = SDKROOT; };
 		4CE3975514F9D83686B9AA79 /* Pods-DocScanPro.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DocScanPro.debug.xcconfig"; path = "Target Support Files/Pods-DocScanPro/Pods-DocScanPro.debug.xcconfig"; sourceTree = "<group>"; };
+		5D01451861C54A06B94A9CEF /* PDFRasterizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = PDFRasterizer.swift; path = DocScanPro/PDFRasterizer.swift; sourceTree = "<group>"; };
 		6BEEABCF11617BF0F96C4A8C /* libPods-DocScanPro.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-DocScanPro.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = DocScanPro/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = DocScanPro/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -275,6 +283,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				EBD2A70B5B5249AF884E308F /* PDFRasterizer.swift in Sources */,
+				D4CA46D93674434EA2F69166 /* PDFRasterizerBridge.m in Sources */,
+				2AFC7411DE404E5683F6F7DC /* VisionOCR.swift in Sources */,
+				90C4DE6D5CD5480EADEF6715 /* VisionOCRBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
