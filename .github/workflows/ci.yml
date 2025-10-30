@@ -12,10 +12,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
 
-      - name: Enable Corepack (uses package.json packageManager)
-        run: corepack enable
+      - name: Enable Corepack & activate pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.0.0 --activate
+          pnpm -v
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
