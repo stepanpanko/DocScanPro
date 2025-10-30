@@ -1,105 +1,68 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+DocScanPro
 
-# Getting Started
+iOS‑first, privacy‑forward PDF scanner built with React Native. Fast capture, robust zoom/fit viewer, on‑device OCR, and a clean edit toolbar (crop/rotate/filters/delete). Android support will come later.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+⸻
 
-## Step 1: Start Metro
+Why this repo looks the way it does
+	•	pnpm‑only installs for deterministic dependency trees and disk savings.
+	•	TypeScript with strict options and guarded nullish states to prevent runtime crashes.
+	•	Husky hooks block commits/pushes that fail lint or typecheck.
+	•	Light CI on GitHub Actions to keep PRs green (lint + typecheck).
+	•	React Navigation v7 with an explicit navigator id and central route types.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+⸻
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+Requirements
+	•	Node 20+ (repo has "engines": { "node": ">=20" }).
+	•	pnpm 9 (the repo declares "packageManager": "pnpm@9.0.0").
+	•	Enable via Corepack: corepack enable then pnpm -v.
+	•	Xcode + Cocoapods for iOS: gem install cocoapods (or Bundler).
+	•	Watchman (optional, improves Metro): brew install watchman.
 
-```sh
-# Using npm
-npm start
+Android: The android script currently exits intentionally. iOS is the primary target for now.
 
-# OR using Yarn
-yarn start
-```
+⸻
 
-## Step 2: Build and run your app
+Quick start (iOS)
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+# 0) Ensure corepack/pnpm are available
+corepack enable
 
-### Android
+# 1) Install JS deps
+pnpm i
 
-```sh
-# Using npm
-npm run android
+# 2) Install iOS pods
+cd ios && pod install && cd ..
 
-# OR using Yarn
-yarn android
-```
+# 3) Start Metro
+pnpm start
 
-### iOS
+# 4) Run on iOS simulator or a connected device
+pnpm ios
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+If everything is set up correctly, the app boots in the iOS Simulator and supports:
+	•	Tap‑to‑fullscreen page carousel with pinch‑to‑zoom
+	•	Rotation (persisted), basic filters, and delete in the edit toolbar
+	•	On‑device OCR (privacy‑first) with bounding boxes prepared for overlays
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+⸻
 
-```sh
-bundle install
-```
+Common commands
 
-Then, and every time you update your native dependencies, run:
+# Install deps
+pnpm i
 
-```sh
-bundle exec pod install
-```
+# Lint (fails on warnings)
+pnpm lint
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+# Auto‑fix what can be fixed
+pnpm lint:fix
 
-```sh
-# Using npm
-npm run ios
+# Typecheck only
+pnpm typecheck
 
-# OR using Yarn
-yarn ios
-```
+# Start Metro (JS bundler)
+pnpm start
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
-
-## Package manager
-
-This repo uses pnpm. Install with `npm i -g pnpm`.
-
-- Install: `pnpm i`
-- Lint: `pnpm lint`
-- Typecheck: `pnpm typecheck`
+# iOS run
