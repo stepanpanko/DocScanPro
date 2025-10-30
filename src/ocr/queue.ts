@@ -26,7 +26,8 @@ function updateDocumentOcrState(
     return;
   }
 
-  const updatedDoc = { ...docs[docIndex], ...updates };
+  const current = docs[docIndex];
+  const updatedDoc = { ...current, ...updates } as Doc;
   docs[docIndex] = updatedDoc;
   saveDocsIndex(docs);
 
@@ -118,7 +119,6 @@ class OcrQueue {
       // Update status to idle
       updateDocumentOcrState(documentId, {
         ocrStatus: 'idle',
-        ocrProgress: undefined,
       });
 
       // Reset processing state
@@ -157,7 +157,6 @@ class OcrQueue {
       // Update status to error
       updateDocumentOcrState(documentId, {
         ocrStatus: 'error',
-        ocrProgress: undefined,
       });
 
       ocrEvents.emitComplete({
@@ -216,6 +215,7 @@ class OcrQueue {
       }
 
       const page = doc.pages[i];
+      if (!page) continue;
 
       try {
         log(`[OCR] Processing page ${i + 1}/${total}:`, page.uri);
@@ -277,22 +277,22 @@ class OcrQueue {
     // Create excerpt and finalize
     const ocrExcerpt = createOcrExcerpt(updatedPages);
 
-    // Update backward compatibility OCR field
-    const ocrTexts = updatedPages.map(p => p.ocrText || '');
+    // Update backward compatibility OCR field (constructed on final write)
 
     // Update document with final state
     const finalDocs = getDocsIndex();
     const finalDocIndex = finalDocs.findIndex(d => d.id === documentId);
 
     if (finalDocIndex !== -1) {
+      const base = finalDocs[finalDocIndex];
       finalDocs[finalDocIndex] = {
-        ...finalDocs[finalDocIndex],
+        ...base,
         ocrStatus: 'done' as OcrStatus,
         ocrProgress: { processed, total },
         ocrExcerpt,
         pages: updatedPages,
-        ocr: ocrTexts, // backward compatibility
-      };
+        ocr: updatedPages.map(p => p.ocrText ?? '').filter(Boolean),
+      } as Doc;
       saveDocsIndex(finalDocs);
     }
 

@@ -5,7 +5,13 @@
     "jsx": "react-jsx",
     "moduleResolution": "node",
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
+    "useUnknownInCatchVariables": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    
+    
     "noEmit": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,

@@ -4,9 +4,10 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as React from 'react';
 import { Alert, AppState, View, Text, NativeModules } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { FilterProcessorProvider } from './src/FilterProcessor';
+import { RootStackParamList } from './src/navigation/types';
 import { ocrQueue } from './src/ocr/queue';
 import { buildPdfFromImages, shareFile } from './src/pdf';
 import EditDocumentScreen from './src/screens/EditDocumentScreen';
@@ -19,14 +20,7 @@ import {
   putPageFile,
   removeDocFiles,
 } from './src/storage';
-import {
-  Doc,
-  Page,
-  Folder,
-  newDoc,
-  newPage,
-  RootStackParamList,
-} from './src/types';
+import { Doc, Page, Folder, newDoc, newPage } from './src/types';
 import { getImageDimensions } from './src/utils/images';
 import { log } from './src/utils/log';
 import { defaultDocTitle } from './src/utils/naming';
@@ -77,13 +71,7 @@ export default function App() {
     };
   }, []);
 
-  function updateDoc(updated: Doc) {
-    setDocs(prev => {
-      const next = prev.map(d => (d.id === updated.id ? updated : d));
-      saveDocsIndex(next);
-      return next;
-    });
-  }
+  // removed unused updateDoc
 
   async function deleteDoc(id: string) {
     setDocs(prev => {
@@ -100,7 +88,9 @@ export default function App() {
       const doc = newDoc(defaultDocTitle());
       const pages: Page[] = [];
       for (let i = 0; i < imageUris.length; i++) {
-        const stored = await putPageFile(doc.id, imageUris[i], i);
+        const uri = imageUris[i];
+        if (!uri) continue;
+        const stored = await putPageFile(doc.id, uri, i);
         const dimensions = await getImageDimensions(stored);
         pages.push(newPage(stored, dimensions.width, dimensions.height));
       }
@@ -243,7 +233,11 @@ export default function App() {
                 p.id === pageId
                   ? {
                       ...p,
-                      rotation: ((p.rotation + 90) % 360) as 0 | 90 | 180 | 270,
+                      rotation: (((p.rotation ?? 0) + 90) % 360) as
+                        | 0
+                        | 90
+                        | 180
+                        | 270,
                     }
                   : p,
               ),

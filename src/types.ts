@@ -72,7 +72,6 @@ export function newDoc(title: string = defaultDocTitle()): Doc {
     pages: [],
     folderId: null,
     ocr: [],
-    pdfPath: undefined,
   };
 }
 

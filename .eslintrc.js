@@ -1,7 +1,15 @@
 module.exports = {
   root: true,
+  env: { es2022: true, node: true, jest: true },
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import', 'prettier'],
+  plugins: [
+    '@typescript-eslint',
+    'import',
+    'unused-imports',
+    'react',
+    'react-hooks',
+    'prettier',
+  ],
   extends: [
     'eslint:recommended',
     'plugin:@typescript-eslint/recommended',
@@ -10,33 +18,34 @@ module.exports = {
     'plugin:import/recommended',
     'plugin:prettier/recommended',
   ],
-  env: {
-    es2020: true,
-    node: true,
+  settings: {
+    'import/resolver': { typescript: {} },
+    react: { version: 'detect' },
   },
   rules: {
+    'unused-imports/no-unused-imports': 'error',
+    'import/order': [
+      'warn',
+      {
+        'newlines-between': 'always',
+        groups: [
+          'builtin',
+          'external',
+          'internal',
+          'parent',
+          'sibling',
+          'index',
+        ],
+        alphabetize: { order: 'asc', caseInsensitive: true },
+      },
+    ],
+    'react/prop-types': 'off',
     'prettier/prettier': 'warn',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-var-requires': 'off',
     'react/react-in-jsx-scope': 'off',
-    'react/prop-types': 'off',
     'react-hooks/exhaustive-deps': 'warn',
-    'import/order': [
-      'warn',
-      {
-        'newlines-between': 'always',
-        alphabetize: { order: 'asc', caseInsensitive: true },
-      },
-    ],
-  },
-  settings: {
-    'import/resolver': {
-      typescript: {},
-    },
-    react: {
-      version: 'detect',
-    },
   },
   ignorePatterns: [
     'node_modules',
@@ -56,9 +65,7 @@ module.exports = {
         'jest.config.js',
         'tailwind.config.js',
       ],
-      env: {
-        node: true,
-      },
+      env: { node: true },
     },
   ],
 };

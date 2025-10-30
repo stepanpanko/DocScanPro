@@ -220,6 +220,7 @@ export default function EditDocumentScreen({
 
   const renderZoomedView = () => {
     const selectedPage = doc.pages[selectedPageIndex];
+    if (!selectedPage) return null;
     return <FullscreenZoom page={selectedPage} onClose={handleZoomOut} />;
   };
 
@@ -240,14 +241,24 @@ export default function EditDocumentScreen({
           onLayout={e => setCanvasW(e.nativeEvent.layout.width)}
         >
           {uri ? (
-            <ZoomableImage
-              key={`${p.id}:${uri}:${rotation}:${canvasW ?? 'auto'}`}
-              page={p}
-              sourceUri={uri}
-              mode="fit"
-              rotation={rotation}
-              containerWidth={canvasW} // NEW: give the image the exact width it can use
-            />
+            canvasW !== undefined ? (
+              <ZoomableImage
+                key={`${p.id}:${uri}:${rotation}:${canvasW}`}
+                page={p}
+                sourceUri={uri}
+                mode="fit"
+                rotation={rotation}
+                containerWidth={canvasW}
+              />
+            ) : (
+              <ZoomableImage
+                key={`${p.id}:${uri}:${rotation}:auto`}
+                page={p}
+                sourceUri={uri}
+                mode="fit"
+                rotation={rotation}
+              />
+            )
           ) : (
             <Text style={{ color: '#FF9AA7' }}>Empty URI for page</Text>
           )}
