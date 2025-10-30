@@ -381,6 +381,7 @@ export default function App() {
       <FilterProcessorProvider>
         <NavigationContainer>
           <Stack.Navigator
+            id={undefined}
             screenOptions={{
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
