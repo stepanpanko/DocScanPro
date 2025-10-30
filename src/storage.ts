@@ -1,9 +1,33 @@
 import RNFS from 'react-native-fs';
 import { MMKV } from 'react-native-mmkv';
-import type { Doc } from './types';
+
+import type { Doc, Folder } from './types';
 import { toFsPath } from './utils/paths';
 
-const kv = new MMKV({ id: 'DocScanPro' });
+// Memory fallback store if MMKV fails to initialize
+class MemoryStore {
+  private map = new Map<string, string>();
+
+  getString = (k: string) => this.map.get(k) ?? null;
+  set = (k: string, v: string) => {
+    this.map.set(k, v);
+  };
+}
+
+// Initialize storage with fallback to memory store if MMKV fails
+let kv: {
+  getString: (k: string) => string | null;
+  set: (k: string, v: string) => void;
+};
+
+try {
+  kv = new MMKV({ id: 'DocScanPro' });
+  console.log('[MMKV] initialized successfully');
+} catch (e) {
+  console.error('[MMKV] init failed — falling back to memory store:', e);
+  kv = new MemoryStore();
+}
+
 const ROOT = `${RNFS.DocumentDirectoryPath}/DocScanPro`;
 
 async function ensureRoot() {
@@ -18,6 +42,15 @@ export function getDocsIndex(): Doc[] {
 
 export function saveDocsIndex(docs: Doc[]) {
   kv.set('docs-index', JSON.stringify(docs));
+}
+
+export function getFoldersIndex(): Folder[] {
+  const raw = kv.getString('folders-index');
+  return raw ? (JSON.parse(raw) as Folder[]) : [];
+}
+
+export function saveFoldersIndex(folders: Folder[]) {
+  kv.set('folders-index', JSON.stringify(folders));
 }
 
 async function docDir(docId: string) {

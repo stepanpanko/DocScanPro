@@ -1,241 +1,543 @@
-import React from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
   StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Alert,
+  FlatList,
+  LayoutAnimation,
 } from 'react-native';
-import { useFilterProcessor } from '../FilterProcessor';
-import { buildPdfFromImages, shareFile } from '../pdf';
-import Button from '../components/Button';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import FullscreenZoom from '../components/FullscreenZoom';
 import PageCarousel from '../components/PageCarousel';
-import ThumbnailStrip from '../components/ThumbnailStrip';
-import SearchableStatus from './DocumentDetails/SearchableStatus';
-import { ocrQueue } from '../ocr/queue';
-import { Doc } from '../types';
-import { log } from '../utils/log';
+import ZoomableImage from '../components/ZoomableImage';
+import type { RootStackParamList, Doc } from '../types';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type Props = {
   doc: Doc;
-  onBack: () => void;
-  onSaveMeta: (d: Doc) => void;
-  onDelete: () => void;
+  onExport: (docId: string) => void;
+  onDeleteDoc: (docId: string) => void;
+  onDeletePage: (docId: string, pageId: string) => void;
+  onAddPages: (docId: string) => void;
+  onApplyPageEdits: (
+    docId: string,
+    pageId: string,
+    patch: {
+      rotation?: 0 | 90 | 180 | 270;
+      filter?: 'color' | 'grayscale' | 'bw';
+      autoContrast?: boolean;
+    },
+  ) => void;
+  onRename?: (docId: string, title: string) => void;
+  onRotatePage?: (docId: string, pageId: string) => void;
+  onFilter?: (
+    docId: string,
+    pageId: string,
+    filter: 'color' | 'grayscale' | 'bw',
+  ) => void;
+  onAutoContrast?: (docId: string, pageId: string, enabled: boolean) => void;
 };
 
 export default function EditDocumentScreen({
   doc,
-  onBack,
-  onSaveMeta,
-  onDelete,
+  onExport,
+  onDeleteDoc,
+  onDeletePage,
+  onAddPages,
+  onApplyPageEdits,
+  onRename: _onRename,
+  onRotatePage: _onRotatePage,
+  onFilter: _onFilter,
+  onAutoContrast: _onAutoContrast,
 }: Props) {
-  const { process } = useFilterProcessor();
-  const [busy, setBusy] = React.useState(false);
-  const [currentDoc, setCurrentDoc] = React.useState<Doc>(doc);
-  const [currentPageIndex, setCurrentPageIndex] = React.useState(0);
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute();
+  const startIndex = ((route.params as any)?.startIndex ?? 0) as number;
 
-  // Guard against empty pages while layout settles
-  const pages = currentDoc.pages ?? [];
-  if (pages.length === 0) {
-    return <View style={{flex:1, backgroundColor:'#111'}} />;
-  }
+  const [viewMode, setViewMode] = useState<'single' | 'grid' | 'zoomed'>(
+    'single',
+  );
+  const [selectedPageIndex, setSelectedPageIndex] = useState(0);
+  const [currentPageIndex, setCurrentPageIndex] = useState(startIndex);
+  const [editMode, setEditMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Update local doc state when prop changes
-  React.useEffect(() => {
-    setCurrentDoc(doc);
-  }, [doc]);
+  const { width } = Dimensions.get('window');
+  const currentPage = doc.pages[currentPageIndex] ?? null;
 
-  // Auto-trigger OCR when document is opened
-  React.useEffect(() => {
-    console.log('[OCR][auto] document opened', { docId: doc.id, status: doc.ocrStatus });
-    log('[OCR] Document opened, checking OCR status:', doc.id, doc.ocrStatus);
-    
-    // Auto-enqueue if status is undefined, idle, or error
-    if (doc.ocrStatus === undefined || doc.ocrStatus === 'idle' || doc.ocrStatus === 'error') {
-      console.log('[OCR][auto] auto-enqueue triggered', { docId: doc.id });
-      log('[OCR] Auto-enqueueing document for OCR:', doc.id);
-      ocrQueue.enqueueDoc(doc.id);
+  // Local rotation + dirty flag for edit mode
+  const [rotation, setRotation] = useState<0 | 90 | 180 | 270>(
+    currentPage?.rotation ?? 0,
+  );
+  const [dirty, setDirty] = useState(false);
+
+  // Track the edit canvas width for edge-to-edge display
+  const [canvasW, setCanvasW] = useState<number | undefined>(undefined);
+
+  // Reset draft when page changes or when entering edit mode
+  useEffect(() => {
+    setRotation((currentPage?.rotation ?? 0) as 0 | 90 | 180 | 270);
+    setDirty(false);
+  }, [currentPageIndex, editMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDeleteDoc = () => {
+    Alert.alert('Delete', `Delete "${doc.title}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDeleteDoc(doc.id),
+      },
+    ]);
+  };
+
+  const handleEditMode = () => setEditMode(true);
+
+  const handleBack = () => {
+    if (editMode && dirty) {
+      Alert.alert('Unsaved changes', 'Save your edits?', [
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: () => {
+            setDirty(false);
+            setEditMode(false);
+          },
+        },
+        { text: 'Save', onPress: () => handleSave() },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    } else {
+      if (editMode) setEditMode(false);
+      else navigation.goBack();
     }
-  }, [doc.id, doc.ocrStatus]);
+  };
 
+  // Save persists rotation to the page
+  const handleSave = () => {
+    const p = currentPage;
+    if (!p) return;
+    onApplyPageEdits(doc.id, p.id, { rotation });
+    setDirty(false);
+    setEditMode(false);
+  };
 
-  async function exportPdf() {
+  const handleGridToggle = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (viewMode === 'single') setViewMode('grid');
+    else {
+      setViewMode('single');
+      setCurrentPageIndex(0);
+    }
+  };
+
+  const handlePageSelect = (index: number) => {
+    if (viewMode === 'grid') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setSelectedPageIndex(index);
+      setViewMode('zoomed');
+    }
+  };
+
+  const handleZoomOut = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setViewMode('grid');
+  };
+
+  const handleExport = async () => {
+    setIsExporting(true);
     try {
-      setBusy(true);
-      const processed: string[] = [];
-      for (const p of currentDoc.pages) {
-        const out = await process({
-          uri: p.uri,
-          filter: p.filter,
-          rotation: p.rotation,
-        });
-        processed.push(out);
-      }
-
-      log('[exportPdf] processed uris:', processed);
-      const pdf = await buildPdfFromImages(currentDoc.id, processed);
-      log('[exportPdf] pdf:', pdf);
-
-      const updatedDoc = { ...currentDoc, pdfPath: pdf };
-      setCurrentDoc(updatedDoc);
-      onSaveMeta(updatedDoc);
-      await shareFile(pdf);
-    } catch (e: any) {
-      log('[exportPdf] ERROR:', e?.message || e);
-      Alert.alert('Export failed', String(e?.message || e));
+      await onExport(doc.id);
     } finally {
-      setBusy(false);
+      setIsExporting(false);
     }
-  }
+  };
 
+  const handleAddPages = () => onAddPages(doc.id);
 
+  // --- Edit actions (Rotate now implemented) ---
+  const pressCrop = () =>
+    console.log('[Edit] Crop pressed for page', currentPage?.id);
+  const pressRotate = () => {
+    setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
+    setDirty(true);
+  };
+  const pressFilters = () =>
+    console.log('[Edit] Filters pressed for page', currentPage?.id);
+  const pressDeletePage = () => {
+    if (!currentPage) return;
+    Alert.alert('Delete Page', 'Delete this page?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDeletePage(doc.id, currentPage.id),
+      },
+    ]);
+  };
 
-  return (
-    <View key={doc.id} style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title} numberOfLines={1}>
-            {currentDoc.title}
-          </Text>
-          <Text style={styles.pageIndicator}>
-            {currentPageIndex + 1}/{currentDoc.pages.length}
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={() => {
-            Alert.alert(
-              'Delete document',
-              'This will remove the document and its files.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Delete', style: 'destructive', onPress: onDelete },
-              ],
-            );
-          }}
-          style={styles.deleteButton}
+  const renderGridView = () => {
+    const numColumns = 2;
+    const itemSize = (width - 60) / numColumns;
+
+    return (
+      <FlatList
+        data={doc.pages}
+        numColumns={numColumns}
+        keyExtractor={(item, index) => `${item.uri}-${index}`}
+        contentContainerStyle={styles.gridContainer}
+        renderItem={({ item, index }) => (
+          <TouchableOpacity
+            style={[
+              styles.gridItem,
+              { width: itemSize, height: itemSize * 1.3 },
+            ]}
+            onPress={() => handlePageSelect(index)}
+            activeOpacity={0.8}
+          >
+            <Image
+              source={{ uri: item.uri }}
+              style={[
+                styles.gridImage,
+                { transform: [{ rotate: `${item.rotation ?? 0}deg` }] },
+              ]}
+              resizeMode="cover"
+            />
+            <Text style={styles.pageLabel}>Page: {index + 1}</Text>
+          </TouchableOpacity>
+        )}
+      />
+    );
+  };
+
+  const renderZoomedView = () => {
+    const selectedPage = doc.pages[selectedPageIndex];
+    return <FullscreenZoom page={selectedPage} onClose={handleZoomOut} />;
+  };
+
+  const renderSingleView = () => {
+    if (editMode) {
+      const p = currentPage;
+      if (!p) {
+        return (
+          <View style={styles.editCanvas}>
+            <Text style={{ color: '#FFF' }}>No page found</Text>
+          </View>
+        );
+      }
+      const uri = p.uri || '';
+      return (
+        <View
+          style={styles.editCanvas}
+          onLayout={e => setCanvasW(e.nativeEvent.layout.width)}
         >
-          <Text style={styles.deleteText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
+          {uri ? (
+            <ZoomableImage
+              key={`${p.id}:${uri}:${rotation}:${canvasW ?? 'auto'}`}
+              page={p}
+              sourceUri={uri}
+              mode="fit"
+              rotation={rotation}
+              containerWidth={canvasW} // NEW: give the image the exact width it can use
+            />
+          ) : (
+            <Text style={{ color: '#FF9AA7' }}>Empty URI for page</Text>
+          )}
+        </View>
+      );
+    }
 
-      {/* Searchable Status Banner */}
-      <SearchableStatus doc={currentDoc} />
-
-      {/* Page Carousel */}
-      <View style={styles.carouselContainer}>
+    return (
+      <View style={styles.canvas}>
         <PageCarousel
-          pages={currentDoc.pages}
+          pages={doc.pages}
           initialIndex={currentPageIndex}
           onIndexChange={setCurrentPageIndex}
         />
+        <Text style={styles.pageCount}>
+          {currentPageIndex + 1} / {doc.pages.length}
+        </Text>
       </View>
+    );
+  };
 
-      {/* Thumbnail Strip */}
-      {currentDoc.pages.length > 1 && (
-        <ThumbnailStrip
-          pages={currentDoc.pages}
-          currentIndex={currentPageIndex}
-          onPageSelect={setCurrentPageIndex}
-        />
-      )}
+  const renderContent = () => {
+    switch (viewMode) {
+      case 'grid':
+        return renderGridView();
+      case 'zoomed':
+        return renderZoomedView();
+      default:
+        return renderSingleView();
+    }
+  };
 
-      {/* Export Button */}
-      <View style={styles.buttonContainer}>
-        <Button
-          label="Export PDF & Share"
-          onPress={exportPdf}
-          disabled={busy}
-          variant="primary"
-        />
-      </View>
+  const safeEdges =
+    viewMode === 'zoomed'
+      ? (['left', 'right', 'bottom'] as const) // NO TOP inset in zoomed mode
+      : (['top', 'left', 'right', 'bottom'] as const);
 
-      {busy && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563EB" />
-          <Text style={styles.loadingText}>Processing...</Text>
+  return (
+    <SafeAreaView style={styles.container} edges={safeEdges}>
+      {/* Top bar hidden in zoomed mode */}
+      {viewMode !== 'zoomed' && (
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Text style={styles.backText}>‹ Back</Text>
+          </TouchableOpacity>
+
+          {!editMode && <Text style={styles.title}>{doc.title}</Text>}
+
+          {/* Save on the right in edit mode */}
+          {editMode ? (
+            <TouchableOpacity
+              onPress={dirty ? handleSave : undefined}
+              disabled={!dirty}
+              style={[styles.saveBtn, !dirty && styles.saveBtnDisabled]}
+            >
+              <Text
+                style={[styles.saveText, !dirty && styles.saveTextDisabled]}
+              >
+                Save
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.topRightButtons}>
+              <TouchableOpacity
+                onPress={handleGridToggle}
+                style={styles.topIconButtonLarge}
+              >
+                <Text style={styles.topIconTextLarge}>⊞</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDeleteDoc}
+                style={styles.topIconButton}
+              >
+                <Text style={styles.topIconText}>🗑</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
-    </View>
+
+      {renderContent()}
+
+      {/* Bottom toolbar in non-edit mode (unchanged) */}
+      {viewMode !== 'zoomed' && !editMode && (
+        <View style={styles.toolbar}>
+          <Tool
+            icon={isExporting ? '⏳' : '📤'}
+            label={isExporting ? 'Exporting...' : 'Export'}
+            onPress={handleExport}
+            primary
+            disabled={isExporting}
+          />
+          <Tool icon="✏️" label="Edit" onPress={handleEditMode} />
+          <Tool icon="📷" label="Add Page" onPress={handleAddPages} />
+        </View>
+      )}
+
+      {/* NEW: Edit toolbar (Crop, Rotate, Filters, Delete) */}
+      {editMode && (
+        <View style={styles.editToolbar}>
+          <EditTool icon="✂️" label="Crop" onPress={pressCrop} />
+          <EditTool icon="↻" label="Rotate" onPress={pressRotate} />
+          <EditTool icon="🎛️" label="Filters" onPress={pressFilters} />
+          <EditTool
+            icon="🗑"
+            label="Delete"
+            onPress={pressDeletePage}
+            destructive
+          />
+        </View>
+      )}
+    </SafeAreaView>
+  );
+}
+
+type ToolProps = {
+  label: string;
+  onPress: () => void;
+  primary?: boolean;
+  destructive?: boolean;
+  icon?: string;
+  disabled?: boolean;
+};
+
+function Tool({
+  label,
+  onPress,
+  primary = false,
+  destructive = false,
+  icon,
+  disabled = false,
+}: ToolProps) {
+  return (
+    <TouchableOpacity
+      onPress={disabled ? undefined : onPress}
+      style={[
+        styles.tool,
+        primary && styles.toolPrimary,
+        destructive && styles.toolDestructive,
+        disabled && styles.toolDisabled,
+      ]}
+      disabled={disabled}
+    >
+      {icon && <Text style={styles.toolIcon}>{icon}</Text>}
+      <Text
+        style={[
+          styles.toolText,
+          primary && styles.toolTextPrimary,
+          destructive && styles.toolTextDestructive,
+          disabled && styles.toolTextDisabled,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+function EditTool({
+  icon,
+  label,
+  onPress,
+  destructive,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.editTool, destructive && styles.editToolDestructive]}
+    >
+      <Text style={styles.editToolIcon}>{icon}</Text>
+      <Text
+        style={[
+          styles.editToolLabel,
+          destructive && styles.editToolLabelDestructive,
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  header: {
+  container: { flex: 1, backgroundColor: '#0B0F17' },
+
+  // top bar
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 12,
   },
-  backButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  backButton: { padding: 8 },
+  backText: { color: '#8FB3FF', fontSize: 16, fontWeight: '700' },
+  title: { color: '#E6EDF7', fontSize: 16, fontWeight: '800' },
+  topRightButtons: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  topIconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  backText: {
-    fontWeight: '600',
-    color: '#FFFFFF',
-    fontSize: 16,
+  topIconButtonLarge: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  titleContainer: {
+  topIconText: { color: '#E6EDF7', fontSize: 18 },
+  topIconTextLarge: { color: '#E6EDF7', fontSize: 22 },
+
+  // viewers
+  canvas: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  editCanvas: {
     flex: 1,
-    alignItems: 'center',
-    marginHorizontal: 16,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  pageIndicator: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  deleteButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  deleteText: {
-    fontSize: 18,
-  },
-  carouselContainer: {
-    flex: 1,
-  },
-  buttonContainer: {
-    padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  loadingContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    alignItems: 'stretch', // IMPORTANT: stretch horizontally so child can use full width
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+
+  pageCount: { color: '#ABBCCD', marginTop: 12 },
+
+  // bottom toolbar (non-edit)
+  toolbar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#1E2633',
+  },
+  tool: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: '#10192B',
+  },
+  toolPrimary: { backgroundColor: '#2563EB' },
+  toolDestructive: { backgroundColor: '#2B0F12' },
+  toolText: { color: '#B6C2D9', fontWeight: '700' },
+  toolTextPrimary: { color: '#FFF' },
+  toolTextDestructive: { color: '#FF9AA7' },
+  toolIcon: { fontSize: 20, marginBottom: 4, textAlign: 'center' },
+  toolDisabled: { opacity: 0.5 },
+  toolTextDisabled: { color: '#666' },
+
+  // grid/zoomed (unchanged)
+  gridContainer: { padding: 20, justifyContent: 'space-around' },
+  gridItem: {
+    margin: 10,
+    backgroundColor: '#111',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  gridImage: { flex: 1, width: '100%' },
+  pageLabel: {
+    color: '#E6EDF7',
+    textAlign: 'center',
+    padding: 8,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // NEW: edit toolbar
+  editToolbar: {
+    borderTopWidth: 1,
+    borderTopColor: '#1E2633',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: '#0E1524',
+  },
+  editTool: {
     alignItems: 'center',
+    paddingHorizontal: 8,
   },
-  loadingText: {
-    marginTop: 8,
-    color: '#FFFFFF',
-    fontSize: 16,
+  editToolIcon: { fontSize: 20, marginBottom: 4, color: '#E6EDF7' },
+  editToolLabel: { color: '#E6EDF7', fontSize: 12, fontWeight: '600' },
+  editToolDestructive: {},
+  editToolLabelDestructive: { color: '#FF9AA7' },
+  saveBtn: {
+    backgroundColor: '#2563EB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
+  saveBtnDisabled: { backgroundColor: '#374151' },
+  saveText: { color: '#FFFFFF', fontWeight: '700' },
+  saveTextDisabled: { color: '#A3A3A3' },
 });

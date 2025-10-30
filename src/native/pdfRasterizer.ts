@@ -16,5 +16,8 @@ export type RasterizeResult = {
 const { PDFRasterizer } = NativeModules;
 
 export default PDFRasterizer as {
-  rasterize(pdfPath: string, options?: RasterizeOptions): Promise<RasterizeResult>;
+  rasterize(
+    pdfPath: string,
+    options?: RasterizeOptions,
+  ): Promise<RasterizeResult>;
 };
