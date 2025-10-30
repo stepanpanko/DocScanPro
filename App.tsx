@@ -381,6 +381,8 @@ export default function App() {
       <FilterProcessorProvider>
         <NavigationContainer>
           <Stack.Navigator
+            // @ts-expect-error React Navigation v7 types mark id as undefined; string id is valid at runtime
+            id="root-stack"
             screenOptions={{
               gestureEnabled: true,
               fullScreenGestureEnabled: true,
