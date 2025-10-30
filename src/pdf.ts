@@ -5,7 +5,6 @@ import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import Share from 'react-native-share';
 
-import { getDocsIndex } from './storage';
 import type { OcrWord, Doc } from './types';
 import { log, warn } from './utils/log';
 import { stripFileScheme } from './utils/paths';
@@ -145,6 +144,7 @@ export async function buildPdfFromImages(docId: string, doc: Doc) {
 
   for (let i = 0; i < doc.pages.length; i++) {
     const docPage = doc.pages[i];
+    if (!docPage) continue;
     const src = await getProcessedUriForExport(docPage);
     log(`[PDF] page ${i + 1}:`, src);
 
@@ -189,9 +189,9 @@ export async function buildPdfFromImages(docId: string, doc: Doc) {
     pdfPage.drawImage(img, drawRect);
 
     // 3) Add invisible text layer if we have OCR data for this page
-    if (hasOcrData && font && docPage.ocrBoxes && docPage.ocrBoxes.length > 0) {
+    if (hasOcrData && font && docPage.ocrBoxes?.length) {
       try {
-        const ocrBoxes = docPage.ocrBoxes; // We know it exists and has length > 0
+        const ocrBoxes = docPage.ocrBoxes!; // We know it exists and has length > 0
 
         // Use the original image size from OCR data - this is critical for correct coordinate mapping
         const firstWord = ocrBoxes[0];

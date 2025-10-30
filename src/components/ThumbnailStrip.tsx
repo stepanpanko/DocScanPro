@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Dimensions,
 } from 'react-native';
 
 import type { Page } from '../types';
@@ -16,7 +15,6 @@ type Props = {
   onPageSelect: (index: number) => void;
 };
 
-const { width: screenWidth } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 60;
 const THUMBNAIL_MARGIN = 8;
 

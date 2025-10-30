@@ -224,7 +224,8 @@ export default function LibraryScreen({
                     moveDoc(doc.id, f.id);
                   });
                 } else if (i > 0 && i < names.length - 2) {
-                  moveDoc(doc.id, folders[i - 1].id);
+                  const prev = folders[i - 1];
+                  if (prev) moveDoc(doc.id, prev.id);
                 }
               },
             );

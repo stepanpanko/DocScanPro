@@ -149,15 +149,13 @@ export async function importFromPhotos(): Promise<Doc | null> {
     const pages: Page[] = [];
 
     // Process each selected photo
-    for (let i = 0; i < result.assets.length; i++) {
-      const asset = result.assets[i];
-      const fileUri = asset.uri;
-      const fileName = asset.fileName || `photo-${i}`;
+    const assets = result.assets;
+    for (let i = 0; i < (assets?.length ?? 0); i++) {
+      const asset = assets?.[i];
+      if (!asset?.uri) continue;
 
-      if (!fileUri) {
-        console.log('[IMPORT] Skipping asset without URI:', fileName);
-        continue;
-      }
+      const fileUri = asset.uri;
+      const fileName = asset.fileName ?? `photo-${i}`;
 
       console.log('[IMPORT] Processing photo:', fileName);
 

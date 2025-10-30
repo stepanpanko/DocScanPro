@@ -25,51 +25,7 @@ function getImageSize(
   });
 }
 
-/**
- * Create estimated bounding boxes for text lines.
- * Since react-native-text-recognition doesn't provide bounding boxes,
- * we estimate them based on line position and typical text dimensions.
- */
-function createEstimatedBoundingBoxes(
-  lines: string[],
-  imageSize: { width: number; height: number },
-): OcrWord[] {
-  const words: OcrWord[] = [];
-  const { width: imageW, height: imageH } = imageSize;
-
-  // Estimate text metrics
-  const avgCharWidth = imageW * 0.012; // ~1.2% of image width per character
-  const lineHeight = Math.max(imageH * 0.04, 20); // ~4% of image height or min 20px
-  const marginX = imageW * 0.05; // 5% margin from edges
-  const marginY = imageH * 0.05; // 5% margin from top
-
-  lines.forEach((line, lineIndex) => {
-    if (!line.trim()) return; // Skip empty lines
-
-    const textWidth = line.length * avgCharWidth;
-    const x = marginX;
-    const y = marginY + lineIndex * lineHeight * 1.2; // 1.2x line spacing
-
-    // Ensure we don't exceed image bounds
-    const boundedY = Math.min(y, imageH - lineHeight);
-    const boundedWidth = Math.min(textWidth, imageW - 2 * marginX);
-
-    words.push({
-      text: line,
-      box: {
-        x: x,
-        y: boundedY,
-        width: boundedWidth,
-        height: lineHeight,
-      },
-      conf: 0.8, // Estimated confidence since we don't have real values
-      imgW: imageW,
-      imgH: imageH,
-    });
-  });
-
-  return words;
-}
+// removed unused createEstimatedBoundingBoxes
 
 /**
  * Timeout wrapper for promises
@@ -110,7 +66,7 @@ export async function recognizePage(imagePath: string): Promise<OcrPage> {
         const words: OcrWord[] = visionWords.map(w => ({
           text: w.text,
           box: { x: w.x, y: w.y, width: w.width, height: w.height },
-          conf: w.conf,
+          conf: (w as any).conf ?? 0,
           imgW,
           imgH,
         }));

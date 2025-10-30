@@ -1,4 +1,5 @@
 import TextRecognition from 'react-native-text-recognition';
+
 import type { Doc } from './types';
 import { toBestPath } from './utils/paths';
 

@@ -4,29 +4,15 @@ import { MMKV } from 'react-native-mmkv';
 import type { Doc, Folder } from './types';
 import { toFsPath } from './utils/paths';
 
-// Memory fallback store if MMKV fails to initialize
-class MemoryStore {
-  private map = new Map<string, string>();
+const mmkv = new MMKV({ id: 'DocScanPro' });
 
-  getString = (k: string) => this.map.get(k) ?? null;
-  set = (k: string, v: string) => {
-    this.map.set(k, v);
-  };
-}
-
-// Initialize storage with fallback to memory store if MMKV fails
-let kv: {
+export const kv: {
   getString: (k: string) => string | null;
   set: (k: string, v: string) => void;
+} = {
+  getString: (k: string) => mmkv.getString(k) ?? null,
+  set: (k: string, v: string) => mmkv.set(k, v),
 };
-
-try {
-  kv = new MMKV({ id: 'DocScanPro' });
-  console.log('[MMKV] initialized successfully');
-} catch (e) {
-  console.error('[MMKV] init failed — falling back to memory store:', e);
-  kv = new MemoryStore();
-}
 
 const ROOT = `${RNFS.DocumentDirectoryPath}/DocScanPro`;
 

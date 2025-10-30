@@ -110,7 +110,12 @@ export default function PageCarousel({
         statusBarTranslucent
         onRequestClose={closeFullscreen}
       >
-        <FullscreenZoom page={pages[currentIndex]} onClose={closeFullscreen} />
+        {pages[currentIndex] ? (
+          <FullscreenZoom
+            page={pages[currentIndex]}
+            onClose={closeFullscreen}
+          />
+        ) : null}
       </Modal>
     </>
   );
