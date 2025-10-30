@@ -1,4 +1,3 @@
-import Foundation
 import Vision
 import UIKit
 import React

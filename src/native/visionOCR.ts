@@ -17,6 +17,11 @@ export type VisionOCRResult = {
 
 const { VisionOCR } = NativeModules;
 
-export default VisionOCR as {
-  recognize(imagePath: string, languages?: string[]): Promise<VisionOCRResult>;
-} | undefined;
+export default VisionOCR as
+  | {
+      recognize(
+        imagePath: string,
+        languages?: string[],
+      ): Promise<VisionOCRResult>;
+    }
+  | undefined;

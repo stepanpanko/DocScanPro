@@ -1,26 +1,61 @@
 // App.tsx
 import 'react-native-gesture-handler';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as React from 'react';
-import {Alert, AppState} from 'react-native';
-import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
+import { Alert, AppState, View, Text, NativeModules } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import {FilterProcessorProvider} from './src/FilterProcessor';
-import LibraryScreen from './src/screens/LibraryScreen';
+import { FilterProcessorProvider } from './src/FilterProcessor';
+import { ocrQueue } from './src/ocr/queue';
+import { buildPdfFromImages, shareFile } from './src/pdf';
 import EditDocumentScreen from './src/screens/EditDocumentScreen';
-import {Doc, Page} from './src/types';
-import {getDocsIndex, saveDocsIndex, putPageFile, removeDocFiles} from './src/storage';
-import {ocrQueue} from './src/ocr/queue';
-import {log} from './src/utils/log';
-import { NativeModules } from 'react-native';
+import LibraryScreen from './src/screens/LibraryScreen';
+import {
+  getDocsIndex,
+  saveDocsIndex,
+  getFoldersIndex,
+  saveFoldersIndex,
+  putPageFile,
+  removeDocFiles,
+} from './src/storage';
+import {
+  Doc,
+  Page,
+  Folder,
+  newDoc,
+  newPage,
+  RootStackParamList,
+} from './src/types';
+import { getImageDimensions } from './src/utils/images';
+import { log } from './src/utils/log';
+import { defaultDocTitle } from './src/utils/naming';
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   // Check if native modules are available
   console.log('[APP] Native modules check:');
   console.log('[APP] VisionOCR available:', !!NativeModules.VisionOCR);
   console.log('[APP] PDFRasterizer available:', !!NativeModules.PDFRasterizer);
-  const [screen, setScreen] = React.useState<'library' | 'editor'>('library');
-  const [docs, setDocs] = React.useState<Doc[]>(getDocsIndex());
-  const [current, setCurrent] = React.useState<Doc | null>(null);
+
+  // Safely initialize state from storage, with fallback to empty arrays if storage fails
+  const [docs, setDocs] = React.useState<Doc[]>(() => {
+    try {
+      return getDocsIndex();
+    } catch (e) {
+      console.error('[APP] Failed to load docs index:', e);
+      return [];
+    }
+  });
+  const [folders, setFolders] = React.useState<Folder[]>(() => {
+    try {
+      return getFoldersIndex();
+    } catch (e) {
+      console.error('[APP] Failed to load folders index:', e);
+      return [];
+    }
+  });
 
   // Listen to app state changes to resume OCR queue
   React.useEffect(() => {
@@ -32,18 +67,15 @@ export default function App() {
       }
     };
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
+    const subscription = AppState.addEventListener(
+      'change',
+      handleAppStateChange,
+    );
+
     return () => {
       subscription?.remove();
     };
   }, []);
-
-
-  function openDoc(doc: Doc) {
-    setCurrent(doc);
-    setScreen('editor');
-  }
 
   function updateDoc(updated: Doc) {
     setDocs(prev => {
@@ -51,7 +83,6 @@ export default function App() {
       saveDocsIndex(next);
       return next;
     });
-    setCurrent(updated);
   }
 
   async function deleteDoc(id: string) {
@@ -61,38 +92,29 @@ export default function App() {
       return next;
     });
     await removeDocFiles(id);
-    setCurrent(null);
-    setScreen('library');
   }
 
   async function createFromScan(imageUris: string[]) {
     try {
       if (!imageUris?.length) return;
-      const doc: Doc = {
-        id: String(Date.now()),
-        title: `Scan ${new Date().toLocaleString()}`,
-        createdAt: Date.now(),
-        pages: [],
-        ocr: [],
-      };
+      const doc = newDoc(defaultDocTitle());
       const pages: Page[] = [];
       for (let i = 0; i < imageUris.length; i++) {
         const stored = await putPageFile(doc.id, imageUris[i], i);
-        pages.push({uri: stored, rotation: 0, filter: 'color'});
+        const dimensions = await getImageDimensions(stored);
+        pages.push(newPage(stored, dimensions.width, dimensions.height));
       }
-      const created: Doc = {...doc, pages};
+      const created: Doc = { ...doc, pages };
       setDocs(prev => {
         const next = [created, ...prev];
         saveDocsIndex(next);
         return next;
       });
-      
+
       // Auto-enqueue the new document for OCR processing
       console.log('[OCR][auto] new document created', { docId: created.id });
       log('[OCR] New document created, auto-enqueueing for OCR:', created.id);
       requestAnimationFrame(() => ocrQueue.enqueueDoc(created.id));
-      
-      openDoc(created);
     } catch (e: any) {
       Alert.alert('Create failed', String(e?.message || e));
     }
@@ -124,28 +146,309 @@ export default function App() {
     requestAnimationFrame(() => ocrQueue.enqueueDoc(doc.id));
   }
 
+  // Folder management functions
+  function createFolder(name: string): Folder {
+    const folder: Folder = {
+      id: String(Date.now()),
+      name,
+      createdAt: Date.now(),
+    };
+    setFolders(prev => {
+      const next = [...prev, folder];
+      saveFoldersIndex(next);
+      return next;
+    });
+    return folder;
+  }
+
+  function renameFolder(id: string, name: string) {
+    if (name === '__DELETE__') {
+      setFolders(prev => {
+        const next = prev.filter(f => f.id !== id);
+        saveFoldersIndex(next);
+        return next;
+      });
+      setDocs(prev => {
+        const next = prev.map(d =>
+          d.folderId === id ? { ...d, folderId: null } : d,
+        );
+        saveDocsIndex(next);
+        return next;
+      });
+    } else {
+      setFolders(prev => {
+        const next = prev.map(f => (f.id === id ? { ...f, name } : f));
+        saveFoldersIndex(next);
+        return next;
+      });
+    }
+  }
+
+  function moveDoc(docId: string, folderId: string | null) {
+    console.log('[MOVE] Moving doc', docId, 'to folder', folderId);
+    setDocs(prev => {
+      const next = prev.map(d => {
+        if (d.id === docId) {
+          console.log(
+            '[MOVE] Updating doc',
+            d.title,
+            'from folder',
+            d.folderId,
+            'to folder',
+            folderId,
+          );
+          return { ...d, folderId };
+        }
+        return d;
+      });
+      saveDocsIndex(next);
+      console.log(
+        '[MOVE] Updated docs:',
+        next.map(d => ({ id: d.id, title: d.title, folderId: d.folderId })),
+      );
+      return next;
+    });
+  }
+
+  function renameDoc(docId: string, title: string) {
+    setDocs(prev => {
+      const next = prev.map(d => (d.id === docId ? { ...d, title } : d));
+      saveDocsIndex(next);
+      return next;
+    });
+  }
+
+  // Edit screen handlers
+  function handleRename(docId: string, title: string) {
+    renameDoc(docId, title);
+  }
+
+  function handleDeletePage(docId: string, pageId: string) {
+    setDocs(prev =>
+      prev.map(d =>
+        d.id === docId
+          ? { ...d, pages: d.pages.filter(p => p.id !== pageId) }
+          : d,
+      ),
+    );
+  }
+
+  function handleRotatePage(docId: string, pageId: string) {
+    setDocs(prev =>
+      prev.map(d =>
+        d.id === docId
+          ? {
+              ...d,
+              pages: d.pages.map(p =>
+                p.id === pageId
+                  ? {
+                      ...p,
+                      rotation: ((p.rotation + 90) % 360) as 0 | 90 | 180 | 270,
+                    }
+                  : p,
+              ),
+            }
+          : d,
+      ),
+    );
+  }
+
+  function handleFilter(
+    docId: string,
+    pageId: string,
+    filter: 'color' | 'grayscale' | 'bw',
+  ) {
+    setDocs(prev =>
+      prev.map(d =>
+        d.id === docId
+          ? {
+              ...d,
+              pages: d.pages.map(p => (p.id === pageId ? { ...p, filter } : p)),
+            }
+          : d,
+      ),
+    );
+  }
+
+  function handleAutoContrast(docId: string, pageId: string, enabled: boolean) {
+    setDocs(prev =>
+      prev.map(d =>
+        d.id === docId
+          ? {
+              ...d,
+              pages: d.pages.map(p =>
+                p.id === pageId ? { ...p, autoContrast: enabled } : p,
+              ),
+            }
+          : d,
+      ),
+    );
+  }
+
+  function handleApplyPageEdits(
+    docId: string,
+    pageId: string,
+    patch: {
+      rotation?: 0 | 90 | 180 | 270;
+      filter?: 'color' | 'grayscale' | 'bw';
+      autoContrast?: boolean;
+    },
+  ) {
+    setDocs(prev => {
+      const next = prev.map(d => {
+        if (d.id !== docId) return d;
+        return {
+          ...d,
+          pages: d.pages.map(p => (p.id === pageId ? { ...p, ...patch } : p)),
+        };
+      });
+      saveDocsIndex(next);
+      return next;
+    });
+
+    // Re-OCR this page so the invisible text matches the new look
+    try {
+      // If you have page-level enqueue; else enqueue the full doc
+      // ocrQueue.enqueuePage(docId, pageId);
+      ocrQueue.enqueueDoc(docId);
+    } catch (e) {
+      console.warn('[OCR] enqueue failed', e);
+    }
+  }
+
+  async function handleExport(docId: string) {
+    const doc = docs.find(d => d.id === docId);
+    if (!doc) return;
+    try {
+      log('[EXPORT] Starting export for document:', doc.id);
+
+      // Build PDF from document (will process images with filters/rotation)
+      const pdfUri = await buildPdfFromImages(doc.id, doc);
+
+      // Share the PDF
+      await shareFile(pdfUri);
+
+      log('[EXPORT] Export completed successfully');
+    } catch (e: any) {
+      log('[EXPORT] Export failed:', e);
+      Alert.alert('Export failed', String(e?.message || e));
+    }
+  }
+
+  async function handleAddPages(docId: string) {
+    try {
+      const DocumentScanner =
+        require('react-native-document-scanner-plugin').default;
+      const result = await DocumentScanner.scanDocument({
+        maxNumDocuments: 12,
+        cropping: false,
+      });
+
+      if (result?.scannedImages?.length) {
+        const doc = docs.find(d => d.id === docId);
+        if (!doc) return;
+
+        // Add new pages to existing document
+        const newPages: Page[] = [];
+        for (let i = 0; i < result.scannedImages.length; i++) {
+          const stored = await putPageFile(
+            docId,
+            result.scannedImages[i],
+            doc.pages.length + i,
+          );
+          const dimensions = await getImageDimensions(stored);
+          newPages.push(newPage(stored, dimensions.width, dimensions.height));
+        }
+
+        // Update document with new pages
+        const updatedDoc = { ...doc, pages: [...doc.pages, ...newPages] };
+        setDocs(prev => {
+          const next = prev.map(d => (d.id === docId ? updatedDoc : d));
+          saveDocsIndex(next);
+          return next;
+        });
+
+        // Enqueue for OCR processing
+        requestAnimationFrame(() => ocrQueue.enqueueDoc(docId));
+      }
+    } catch (e: any) {
+      Alert.alert('Scanner error', String(e?.message || e));
+    }
+  }
+
   return (
     <SafeAreaProvider>
       <FilterProcessorProvider>
-        <SafeAreaView style={{flex: 1, backgroundColor: '#F8FAFC'}} edges={['top', 'bottom']}>
-          {screen === 'library' ? (
-            <LibraryScreen
-              onOpen={openDoc}
-              onCreate={startScan}
-              docs={docs}
-              refresh={() => setDocs(getDocsIndex())}
-              onDelete={deleteDoc}
-              onImport={handleImport}
-            />
-          ) : (
-            <EditDocumentScreen
-              doc={current!}
-              onBack={() => setScreen('library')}
-              onSaveMeta={updateDoc}
-              onDelete={() => current && deleteDoc(current.id)}
-            />
-          )}
-        </SafeAreaView>
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
+              animation: 'default',
+              presentation: 'card',
+              headerStyle: {
+                backgroundColor: '#0B0F17',
+              },
+              headerTintColor: '#E6EDF7',
+              headerTitleStyle: {
+                fontWeight: '700',
+              },
+            }}
+          >
+            <Stack.Screen name="Library" options={{ headerShown: false }}>
+              {props => (
+                <LibraryScreen
+                  {...props}
+                  onCreate={startScan}
+                  docs={docs}
+                  folders={folders}
+                  onDelete={deleteDoc}
+                  onImport={handleImport}
+                  createFolder={createFolder}
+                  renameFolder={renameFolder}
+                  moveDoc={moveDoc}
+                  renameDoc={renameDoc}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen name="EditDocument" options={{ headerShown: false }}>
+              {props => {
+                const doc = docs.find(d => d.id === props.route.params?.docId);
+                if (!doc) {
+                  return (
+                    <View
+                      style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        backgroundColor: '#0B0F17',
+                      }}
+                    >
+                      <Text style={{ color: '#E6EDF7' }}>
+                        Document not found
+                      </Text>
+                    </View>
+                  );
+                }
+                return (
+                  <EditDocumentScreen
+                    {...props}
+                    doc={doc}
+                    onRename={handleRename}
+                    onDeletePage={handleDeletePage}
+                    onRotatePage={handleRotatePage}
+                    onFilter={handleFilter}
+                    onAutoContrast={handleAutoContrast}
+                    onApplyPageEdits={handleApplyPageEdits}
+                    onExport={handleExport}
+                    onDeleteDoc={deleteDoc}
+                    onAddPages={handleAddPages}
+                  />
+                );
+              }}
+            </Stack.Screen>
+          </Stack.Navigator>
+        </NavigationContainer>
       </FilterProcessorProvider>
     </SafeAreaProvider>
   );

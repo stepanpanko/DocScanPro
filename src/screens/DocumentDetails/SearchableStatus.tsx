@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+
 import type { Doc } from '../../types';
 
 type Props = {
@@ -12,8 +13,10 @@ export default function SearchableStatus({ doc }: Props) {
     return null;
   }
 
-  const hasSearchableText = doc.ocrPages.some(page => page.fullText.trim().length > 0);
-  
+  const hasSearchableText = doc.ocrPages.some(
+    page => page.fullText.trim().length > 0,
+  );
+
   if (!hasSearchableText) {
     return null;
   }

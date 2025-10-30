@@ -17,6 +17,6 @@
 		<string>com.apple.authentication-services-account-authentication-modification-ui</string>
 	</dict>
 	<key>RCTNewArchEnabled</key>
-	<true/>
+	<false/>
 </dict>
 </plist>

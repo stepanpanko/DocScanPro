@@ -1,10 +1,13 @@
 # Refactor Notes
 
 ## Overview
+
 This document summarizes the cleanup and refactoring performed on the DocScanPro React Native app to remove unused code and dependencies, improve TypeScript typing, and consolidate utilities while maintaining the exact same user experience and functionality.
 
 ## Current PDF Pipeline
+
 The PDF export pipeline uses `pdf-lib` (pure JavaScript) and follows this process:
+
 1. **Image Processing**: Images are processed through the FilterProcessor with filters (color/grayscale/bw) and rotation applied using react-native-image-filter-kit when available
 2. **PDF Creation**: The processed image URIs are read as base64 strings and embedded into a PDF using `pdf-lib`
 3. **Embedding Strategy**: Tries to embed as JPG first, then PNG, and if both fail, re-encodes the image to JPEG using react-native-image-resizer
@@ -16,6 +19,7 @@ The pipeline maintains all original functionality including filter application, 
 ## Changes Made
 
 ### Removed Packages
+
 - `react-native-pdf-lib` - Replaced by pdf-lib, was unused
 - `@react-native/new-app-screen` - Unused component
 - `@react-navigation/native` - Not used in the simple screen state management
@@ -29,14 +33,17 @@ The pipeline maintains all original functionality including filter application, 
 - `zustand` - Unused state management library
 
 ### Removed Files
+
 - `src/screens/Home.tsx` - Unused home screen component
 - `src/components/FilteredImage.js` - Unused image filter component
 
 ### New Files
+
 - `src/utils/log.ts` - Centralized logging utility that no-ops in release builds
 - `src/utils/paths.ts` - Consolidated path utility functions
 
 ### Code Improvements
+
 - **Logging**: Replaced all `console.log` statements with centralized logging utility
 - **TypeScript Types**: Improved type safety throughout the codebase:
   - Better typing for ImageResizer results
@@ -46,9 +53,11 @@ The pipeline maintains all original functionality including filter application, 
 - **ESLint/Prettier**: Applied code formatting and fixed linting issues
 
 ### Function Signature Changes
+
 - None - all existing APIs remain unchanged
 
 ### Safe Changes Rationale
+
 - All removed dependencies were confirmed unused via `npx depcheck` and manual code inspection
 - Removed files were not imported anywhere in the codebase
 - Path utility consolidation maintains backward compatibility
@@ -56,20 +65,24 @@ The pipeline maintains all original functionality including filter application, 
 - Logging changes only affect development output, not functionality
 
 ## Verification Steps
+
 To verify the build works correctly after these changes:
 
 1. **Install dependencies**:
+
    ```bash
    yarn install
    ```
 
 2. **iOS Build**:
+
    ```bash
    cd ios && pod install
    npx react-native run-ios
    ```
 
 3. **Android Build**:
+
    ```bash
    npx react-native run-android
    ```
@@ -83,6 +96,7 @@ To verify the build works correctly after these changes:
    - Tap "Export PDF & Share" → should show share sheet with exported PDF
 
 ## Why We Keep Safe Area Context
+
 React Native's built-in `SafeAreaView` provides basic safe area handling, but `react-native-safe-area-context` offers more comprehensive and reliable safe area management:
 
 - **SafeAreaProvider**: Provides safe area context to the entire app, ensuring consistent safe area calculations
@@ -93,6 +107,7 @@ React Native's built-in `SafeAreaView` provides basic safe area handling, but `r
 The package was initially flagged as unused by dependency analysis, but manual inspection revealed it's actively used in `App.tsx` for proper safe area handling throughout the application.
 
 ## Future Considerations
+
 - Consider upgrading to supported TypeScript version for better ESLint compatibility
 - The FilterProcessor inline styles could be extracted to StyleSheet for better performance
 - Consider adding unit tests for the new utility functions

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
+
 import type { Page } from '../types';
 
 type Props = {
@@ -19,7 +20,11 @@ const { width: screenWidth } = Dimensions.get('window');
 const THUMBNAIL_SIZE = 60;
 const THUMBNAIL_MARGIN = 8;
 
-export default function ThumbnailStrip({ pages, currentIndex, onPageSelect }: Props) {
+export default function ThumbnailStrip({
+  pages,
+  currentIndex,
+  onPageSelect,
+}: Props) {
   const flatListRef = React.useRef<FlatList>(null);
 
   // Scroll to current index when it changes
@@ -35,13 +40,10 @@ export default function ThumbnailStrip({ pages, currentIndex, onPageSelect }: Pr
 
   const renderThumbnail = ({ item, index }: { item: Page; index: number }) => {
     const isActive = index === currentIndex;
-    
+
     return (
       <TouchableOpacity
-        style={[
-          styles.thumbnailContainer,
-          isActive && styles.activeThumbnail,
-        ]}
+        style={[styles.thumbnailContainer, isActive && styles.activeThumbnail]}
         onPress={() => onPageSelect(index)}
         activeOpacity={0.7}
       >
