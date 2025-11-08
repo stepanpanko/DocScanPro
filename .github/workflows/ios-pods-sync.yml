@@ -1,0 +1,41 @@
+name: iOS Pods Sync
+on:
+  workflow_dispatch:
+
+jobs:
+  pods:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: corepack enable && corepack prepare pnpm@9.12.0 --activate
+      - run: pnpm install
+
+      - name: Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install CocoaPods
+        run: gem install cocoapods -N -v 1.16.2
+
+      - name: pod install
+        run: |
+          cd ios
+          pod repo update
+          pod install --verbose
+
+      - name: Commit Pods to branch pod-sync
+        run: |
+          git config user.name "pod-bot"
+          git config user.email "pod-bot@users.noreply.github.com"
+          git checkout -B pod-sync
+          # force-add in case Pods are in .gitignore
+          git add -f ios/Pods ios/Podfile.lock ios/DocScanPro.xcworkspace
+          git commit -m "chore(ios): add CI-generated Pods and workspace" || echo "No changes to commit"
+          git push -f origin pod-sync
