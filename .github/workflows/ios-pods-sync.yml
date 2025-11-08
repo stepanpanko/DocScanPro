@@ -2,11 +2,16 @@ name: iOS Pods Sync
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write   # <— allow pushes
+
 jobs:
   pods:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ensure history for branch creation
 
       - name: Setup Node + pnpm
         uses: actions/setup-node@v4
@@ -30,12 +35,18 @@ jobs:
           pod repo update
           pod install --verbose
 
+      - name: Configure push auth
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
       - name: Commit Pods to branch pod-sync
         run: |
-          git config user.name "pod-bot"
-          git config user.email "pod-bot@users.noreply.github.com"
           git checkout -B pod-sync
-          # force-add in case Pods are in .gitignore
           git add -f ios/Pods ios/Podfile.lock ios/DocScanPro.xcworkspace
-          git commit -m "chore(ios): add CI-generated Pods and workspace" || echo "No changes to commit"
-          git push -f origin pod-sync
+          git commit -m "chore(ios): add CI-generated Pods" || echo "No changes"
+          git push -u origin pod-sync --force
