@@ -1,0 +1,6 @@
+module Pods_DocScanPro {
+  umbrella header "Pods-DocScanPro-umbrella.h"
+
+  export *
+  module * { export * }
+}
