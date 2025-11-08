@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CropModal from '../components/crop/CropModal';
 import FullscreenZoom from '../components/FullscreenZoom';
 import PageCarousel from '../components/PageCarousel';
 import ZoomableImage from '../components/ZoomableImage';
@@ -34,7 +35,17 @@ type Props = {
       rotation?: 0 | 90 | 180 | 270;
       filter?: 'color' | 'grayscale' | 'bw';
       autoContrast?: boolean;
+      uri?: string;
+      width?: number;
+      height?: number;
     },
+  ) => void;
+  onApplyCrop?: (
+    docId: string,
+    pageId: string,
+    uri: string,
+    width: number,
+    height: number,
   ) => void;
   onRename?: (docId: string, title: string) => void;
   onRotatePage?: (docId: string, pageId: string) => void;
@@ -53,6 +64,7 @@ export default function EditDocumentScreen({
   onDeletePage,
   onAddPages,
   onApplyPageEdits,
+  onApplyCrop,
   onRename: _onRename,
   onRotatePage: _onRotatePage,
   onFilter: _onFilter,
@@ -69,6 +81,7 @@ export default function EditDocumentScreen({
   const [currentPageIndex, setCurrentPageIndex] = useState(startIndex);
   const [editMode, setEditMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [cropModalVisible, setCropModalVisible] = useState(false);
 
   const { width } = Dimensions.get('window');
   const currentPage = doc.pages[currentPageIndex] ?? null;
@@ -164,8 +177,11 @@ export default function EditDocumentScreen({
   const handleAddPages = () => onAddPages(doc.id);
 
   // --- Edit actions (Rotate now implemented) ---
-  const pressCrop = () =>
-    console.log('[Edit] Crop pressed for page', currentPage?.id);
+  const pressCrop = () => {
+    if (currentPage) {
+      setCropModalVisible(true);
+    }
+  };
   const pressRotate = () => {
     setRotation(prev => ((prev + 90) % 360) as 0 | 90 | 180 | 270);
     setDirty(true);
@@ -369,6 +385,23 @@ export default function EditDocumentScreen({
             destructive
           />
         </View>
+      )}
+
+      {/* Crop Modal */}
+      {currentPage && (
+        <CropModal
+          visible={cropModalVisible}
+          page={currentPage}
+          onCancel={() => setCropModalVisible(false)}
+          onApply={(uri, width, height) => {
+            if (onApplyCrop && currentPage) {
+              onApplyCrop(doc.id, currentPage.id, uri, width, height);
+            }
+            setCropModalVisible(false);
+            setDirty(false);
+            setEditMode(false);
+          }}
+        />
       )}
     </SafeAreaView>
   );

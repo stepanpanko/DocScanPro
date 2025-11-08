@@ -286,6 +286,9 @@ export default function App() {
       rotation?: 0 | 90 | 180 | 270;
       filter?: 'color' | 'grayscale' | 'bw';
       autoContrast?: boolean;
+      uri?: string;
+      width?: number;
+      height?: number;
     },
   ) {
     setDocs(prev => {
@@ -307,6 +310,38 @@ export default function App() {
       ocrQueue.enqueueDoc(docId);
     } catch (e) {
       console.warn('[OCR] enqueue failed', e);
+    }
+  }
+
+  async function handleApplyCrop(
+    docId: string,
+    pageId: string,
+    croppedUri: string,
+    width: number,
+    height: number,
+  ) {
+    const doc = docs.find(d => d.id === docId);
+    if (!doc) return;
+
+    const pageIndex = doc.pages.findIndex(p => p.id === pageId);
+    if (pageIndex === -1) return;
+
+    try {
+      // Copy cropped image to doc storage
+      const storedUri = await putPageFile(docId, croppedUri, pageIndex);
+
+      // Update page with new URI and dimensions
+      handleApplyPageEdits(docId, pageId, {
+        uri: storedUri,
+        width,
+        height,
+      });
+    } catch (error) {
+      log('[CROP] Failed to apply crop:', error);
+      Alert.alert(
+        'Crop failed',
+        String(error instanceof Error ? error.message : error),
+      );
     }
   }
 
@@ -407,7 +442,14 @@ export default function App() {
                 />
               )}
             </Stack.Screen>
-            <Stack.Screen name="EditDocument" options={{ headerShown: false }}>
+            <Stack.Screen
+              name="EditDocument"
+              options={{
+                headerShown: false,
+                gestureEnabled: false,
+                fullScreenGestureEnabled: false,
+              }}
+            >
               {props => {
                 const doc = docs.find(d => d.id === props.route.params?.docId);
                 if (!doc) {
@@ -436,6 +478,7 @@ export default function App() {
                     onFilter={handleFilter}
                     onAutoContrast={handleAutoContrast}
                     onApplyPageEdits={handleApplyPageEdits}
+                    onApplyCrop={handleApplyCrop}
                     onExport={handleExport}
                     onDeleteDoc={deleteDoc}
                     onAddPages={handleAddPages}
