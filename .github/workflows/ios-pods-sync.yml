@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # <— allow pushes
+  contents: write
 
 jobs:
   pods:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # ensure history for branch creation
+          fetch-depth: 0
 
       - name: Setup Node + pnpm
         uses: actions/setup-node@v4
@@ -29,11 +29,27 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods -N -v 1.16.2
 
+      - name: Pre-pod diagnostics
+        run: |
+          ruby -v
+          pod --version
+          node -v
+          pnpm -v
+          echo "---- ls ios ----"
+          ls -la ios
+          echo "---- RN scripts ----"
+          ls -la node_modules/react-native/scripts || true
+          echo "---- CLI platform ios ----"
+          ls -la node_modules/@react-native-community/cli-platform-ios 2>/dev/null || true
+          echo "---- Try resolve native_modules via Node ----"
+          node -p "require.resolve('@react-native-community/cli-platform-ios/native_modules')" || true
+
       - name: pod install
         run: |
+          set -euo pipefail
           cd ios
           pod repo update
-          pod install --verbose
+          pod install --repo-update --verbose
 
       - name: Configure push auth
         env:
